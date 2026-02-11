@@ -402,6 +402,29 @@ chrome.runtime.onMessage.addListener(
       headerRow.appendChild(headerCell);
       tbody.appendChild(headerRow);
 
+      // Sub-group navigation tools by section (header/nav/main/sidebar/footer/page)
+      if (category === 'navigation') {
+        const subGrouped = new Map<string, CleanTool[]>();
+        for (const item of items) {
+          const parts = item.name.split('.');
+          const section = parts.length >= 3 ? parts[1] : 'page';
+          if (!subGrouped.has(section)) subGrouped.set(section, []);
+          subGrouped.get(section)!.push(item);
+        }
+        const sectionIcons: Record<string, string> = {
+          header: '🔝', nav: '🧭', main: '📄', sidebar: '📌', footer: '🔻', page: '📃',
+        };
+        for (const [section, sectionItems] of subGrouped) {
+          const subHeaderRow = document.createElement('tr');
+          subHeaderRow.className = 'category-subgroup-header';
+          const subHeaderCell = document.createElement('td');
+          subHeaderCell.colSpan = 4;
+          subHeaderCell.innerHTML = `<span class="subgroup-icon">${sectionIcons[section] ?? '📎'}</span> <span class="subgroup-name">${section}</span> <span class="category-group-count">${sectionItems.length}</span>`;
+          subHeaderRow.appendChild(subHeaderCell);
+          tbody.appendChild(subHeaderRow);
+        }
+      }
+
       const optgroup = document.createElement('optgroup');
       optgroup.label = category;
 
