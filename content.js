@@ -155,6 +155,10 @@ function startDomObserver() {
       if (m.type === 'attributes' && m.target.closest?.('form[toolname]')) {
         return true;
       }
+      // Text/characterData changes inside form[toolname] (label edits, etc.)
+      if (m.type === 'characterData' && m.target.parentElement?.closest?.('form[toolname]')) {
+        return true;
+      }
       return false;
     });
     if (relevant) {
@@ -170,6 +174,7 @@ function startDomObserver() {
     childList: true,
     subtree: true,
     attributes: true,
+    characterData: true,
     attributeFilter: ['toolname', 'tooldescription', 'name', 'value', 'type']
   });
   console.debug('[WebMCP] DOM observer initialized');
