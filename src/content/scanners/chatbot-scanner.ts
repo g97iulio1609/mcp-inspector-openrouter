@@ -18,19 +18,30 @@ const CHATBOT_INPUT_SELECTORS = [
   // Gemini
   'div[contenteditable="true"][aria-label*="prompt" i]',
   'rich-textarea',
-  // Grok
+  // Grok / X.com — textarea inside complex React wrapper
+  'textarea[autocapitalize="sentences"]',
   'textarea[placeholder*="Ask" i]',
+  'textarea[placeholder*="Chiedi" i]',
+  'textarea[placeholder*="Frag" i]',
+  'textarea[placeholder*="Demande" i]',
+  'textarea[placeholder*="Pregunta" i]',
   'div[contenteditable="true"][role="textbox"]',
-  // Generic
+  // Generic patterns
   'textarea[aria-label*="message" i]',
   'textarea[placeholder*="message" i]',
+  'textarea[placeholder*="messag" i]',
 ].join(', ');
 
-/** Selectors for send buttons */
+/** Selectors for send buttons — order: specific → generic */
 const SEND_BUTTON_SELECTORS = [
   'button[data-testid="send-button"]',
   'button[aria-label*="send" i]',
   'button[aria-label*="invia" i]',
+  'button[aria-label*="envoyer" i]',
+  'button[aria-label*="enviar" i]',
+  'button[aria-label*="senden" i]',
+  // Grok-specific: button with arrow SVG near the textarea
+  'button[aria-label*="Grok" i]',
 ];
 
 export class ChatbotScanner extends BaseScanner {
@@ -127,10 +138,40 @@ export class ChatbotScanner extends BaseScanner {
       const btn = (root as ParentNode).querySelector(sel);
       if (btn && this.isVisible(btn)) return btn;
     }
-    // Fallback: find a button with an SVG near the input's parent container
-    const container = input.closest('form') || input.parentElement?.parentElement;
-    if (container) {
-      const btn = container.querySelector('button svg[viewBox]')?.closest('button');
+
+    // Walk up from the input to find the closest container with a button
+    let container: Element | null = input;
+    for (let i = 0; i < 6 && container; i++) {
+      container = container.parentElement;
+      if (!container) break;
+      // Look for submit-like buttons (with SVG icons, typically the send button)
+      const buttons = container.querySelectorAll('button:not([disabled])');
+      for (const btn of buttons) {
+        if (!this.isVisible(btn)) continue;
+        const ariaLabel = btn.getAttribute('aria-label')?.toLowerCase() ?? '';
+        const hasSvg = !!btn.querySelector('svg');
+        // Match buttons that look like send buttons (have arrow SVG, or aria hint)
+        if (
+          ariaLabel.includes('send') ||
+          ariaLabel.includes('invia') ||
+          ariaLabel.includes('grok') ||
+          ariaLabel.includes('submit') ||
+          (hasSvg && btn.closest('form'))
+        ) {
+          return btn;
+        }
+      }
+      // If we found a form or major container, try the first button with an SVG
+      if (container.tagName === 'FORM' || container.querySelectorAll('textarea, [contenteditable]').length > 0) {
+        const btn = container.querySelector('button svg[viewBox]')?.closest('button');
+        if (btn && this.isVisible(btn)) return btn;
+      }
+    }
+
+    // Fallback: find a button with an SVG near the input's parent
+    const fallback = input.closest('form') || input.parentElement?.parentElement;
+    if (fallback) {
+      const btn = fallback.querySelector('button svg[viewBox]')?.closest('button');
       if (btn && this.isVisible(btn)) return btn;
     }
     return null;

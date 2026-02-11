@@ -59,8 +59,11 @@ export class ChatbotExecutor extends BaseExecutor {
       } else {
         textarea.value = text;
       }
+      // Dispatch multiple events for React/framework compatibility
       el.dispatchEvent(new Event('input', { bubbles: true }));
       el.dispatchEvent(new Event('change', { bubbles: true }));
+      // React 16+ uses synthetic events — also fire a native InputEvent
+      el.dispatchEvent(new InputEvent('input', { bubbles: true, data: text, inputType: 'insertText' }));
     }
 
     // Let frameworks react
@@ -70,7 +73,15 @@ export class ChatbotExecutor extends BaseExecutor {
   }
 
   private async sendMessage(el: Element): Promise<ExecutionResult> {
-    (el as HTMLElement).click();
+    const btn = el as HTMLButtonElement;
+    // Some chatbots disable the send button until input has content — wait up to 500ms
+    for (let i = 0; i < 5 && btn.disabled; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    if (btn.disabled) {
+      return this.fail('Send button is still disabled — input may not have been recognized');
+    }
+    btn.click();
     return this.ok('Send button clicked');
   }
 }
