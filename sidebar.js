@@ -273,11 +273,12 @@ copyAsJSON.onclick = async () => {
 };
 
 // ── AI init ──
-const envModulePromise = import('./.env.json', { with: { type: 'json' } });
-
 async function initGenAI() {
   let env;
-  try { env = (await envModulePromise).default; } catch { }
+  try {
+    const res = await fetch('./.env.json');
+    if (res.ok) env = await res.json();
+  } catch { }
 
   const savedApiKey = localStorage.getItem('openrouter_api_key') || env?.apiKey;
   const savedModel = localStorage.getItem('openrouter_model') || env?.model || 'google/gemini-2.0-flash-001';
