@@ -868,11 +868,12 @@ async function promptAI(): Promise<void> {
           'error',
           `⚠️ AI response has no text: ${JSON.stringify(response.candidates)}`,
         );
+        finalResponseGiven = true;
       } else {
         const text = response.text.trim();
-        // Check if the response contains a plan
         const planResult = parsePlanFromText(text);
         if (planResult) {
+          // Render the plan in chat
           const planEl = renderPlan(planResult.plan);
           activePlan = { plan: planResult.plan, element: planEl };
 
@@ -888,11 +889,20 @@ async function promptAI(): Promise<void> {
           if (planResult.cleanText) {
             addAndRender('ai', planResult.cleanText);
           }
+
+          // Auto-trigger plan execution: send follow-up to start step 1
+          const updatedConfig = getConfig(pageContext);
+          trace.push({ userPrompt: { message: 'Now execute the plan. Start with step 1. Use tools.', config: updatedConfig } });
+          currentResult = await chat.sendMessage({
+            message: 'Now execute the plan. Start with step 1. Use the available tools.',
+            config: updatedConfig,
+          });
+          // Don't set finalResponseGiven — loop continues to process tool calls
         } else {
           addAndRender('ai', text);
+          finalResponseGiven = true;
         }
       }
-      finalResponseGiven = true;
     } else {
       // Check if response also contains text with a plan update
       if (response.text) {
@@ -1117,19 +1127,14 @@ function getConfig(pageContext?: PageContext | null): ChatConfig {
     'Use your tools to query page content when you need it.',
     `Today's date is: ${getFormattedDate()}`,
     "CRITICAL RULE: Whenever the user provides a relative date (e.g., 'next Monday', 'tomorrow', 'in 3 days'), you must calculate the exact calendar date based on today's date.",
-    // Plan mode rules (always present — AI decides when to use them, but can be forced)
-    '17. **PLAN MODE:** For complex tasks that require multiple steps (especially those involving page navigation, search + analysis, or multi-tool chains), you SHOULD create an execution plan BEFORE taking action.',
-    '18. **PLAN FORMAT:** When creating a plan, include it as a JSON code block with the language tag "plan" at the START of your response, followed by any conversational text:',
-    '```plan',
-    '{"goal":"Find best ubiquinol on Amazon","steps":[{"id":"1","title":"Search for ubiquinol"},{"id":"2","title":"Analyze search results","children":[{"id":"2.1","title":"Read product titles and prices"},{"id":"2.2","title":"Compare reviews and ratings"}]},{"id":"3","title":"Recommend best option"}]}',
-    '```',
-    '19. **PLAN EXECUTION:** After creating the plan, immediately start executing step 1. Do NOT wait for user confirmation. After each step completes, move to the next step automatically.',
-    '20. **PLAN UPDATES:** If during execution you discover that the plan needs to change (new steps needed, steps should be skipped), include an updated plan JSON block in your response.',
+    // Plan mode rules
+    '17. **PLAN MODE:** For complex tasks requiring 2+ steps (navigation, search+analysis, multi-tool chains), FIRST output a plan as a JSON code block tagged "plan", then immediately start executing. The plan format is: ```plan\\n{"goal":"description","steps":[{"id":"1","title":"Step 1"},{"id":"2","title":"Step 2","children":[{"id":"2.1","title":"Sub-step"}]}]}\\n``` Always output the plan BEFORE making any tool calls. After outputting the plan as text, proceed to call tools for step 1.',
+    '18. **PLAN UPDATES:** If the plan needs changes during execution, include an updated ```plan``` block.',
   ];
 
   if (planModeEnabled) {
     systemInstruction.push(
-      '**PLAN MODE IS FORCED ON.** You MUST create a plan for EVERY user request, even simple ones.',
+      '**PLAN MODE IS FORCED ON.** You MUST create a plan for EVERY user request. Output the ```plan``` JSON block FIRST as text, then proceed with tool calls.',
     );
   }
 
