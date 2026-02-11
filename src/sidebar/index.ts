@@ -93,7 +93,7 @@ let trace: unknown[] = [];
 let currentSite = '';
 let currentConvId: string | null = null;
 let planModeEnabled = false;
-let activePlan: { plan: Plan; element: HTMLElement } | null = null;
+let activePlan: { plan: Plan; element: HTMLElement; currentStepIdx: number } | null = null;
 
 // ── Plan mode toggle ──
 
@@ -156,28 +156,37 @@ function isNavigationTool(toolName: string): boolean {
   );
 }
 
-function findPlanStepForTool(plan: Plan, toolName: string): PlanStep | null {
-  for (const step of plan.steps) {
-    if (step.toolName === toolName) return step;
-    const toolCategory = toolName.split('.')[0];
-    if (step.title.toLowerCase().includes(toolCategory)) return step;
+/**
+ * Get the current plan step (sequential tracking).
+ * Advances `currentStepIdx` to the first non-done step.
+ */
+function getCurrentPlanStep(ap: { plan: Plan; currentStepIdx: number }): PlanStep | null {
+  const { plan } = ap;
+  // Skip already-done steps
+  while (ap.currentStepIdx < plan.steps.length && plan.steps[ap.currentStepIdx].status === 'done') {
+    ap.currentStepIdx++;
+  }
+  return plan.steps[ap.currentStepIdx] ?? null;
+}
+
+/**
+ * Mark all remaining pending steps as done (used when AI gives final text response).
+ */
+function markRemainingStepsDone(ap: { plan: Plan; element: HTMLElement }): void {
+  for (const step of ap.plan.steps) {
+    if (step.status === 'pending' || step.status === 'in_progress') {
+      step.status = 'done';
+      updatePlanStep(ap.element, step.id, 'done');
+    }
     if (step.children) {
       for (const child of step.children) {
-        if (child.toolName === toolName) return child;
-        if (child.title.toLowerCase().includes(toolCategory)) return child;
+        if (child.status === 'pending' || child.status === 'in_progress') {
+          child.status = 'done';
+          updatePlanStep(ap.element, child.id, 'done');
+        }
       }
     }
   }
-  // Fallback: find first pending step
-  for (const step of plan.steps) {
-    if (step.status === 'pending') return step;
-    if (step.children) {
-      for (const child of step.children) {
-        if (child.status === 'pending') return child;
-      }
-    }
-  }
-  return null;
 }
 
 async function waitForPageAndRescan(
@@ -876,6 +885,10 @@ async function promptAI(): Promise<void> {
       } else {
         addAndRender('ai', response.text.trim());
       }
+      // Mark all remaining plan steps as done when AI gives final text answer
+      if (activePlan) {
+        markRemainingStepsDone(activePlan);
+      }
       finalResponseGiven = true;
     } else {
 
@@ -903,12 +916,13 @@ async function promptAI(): Promise<void> {
 
           if (activePlan && name === 'update_plan') {
             activePlan.plan = plan;
+            activePlan.currentStepIdx = 0;
             const newPlanEl = renderPlan(plan);
             activePlan.element.replaceWith(newPlanEl);
             activePlan.element = newPlanEl;
           } else {
             const planEl = renderPlan(plan);
-            activePlan = { plan, element: planEl };
+            activePlan = { plan, element: planEl, currentStepIdx: 0 };
             console.debug('[Sidebar] chatContainer exists:', !!chatContainer);
             if (chatContainer) {
               const wrapper = document.createElement('div');
@@ -933,9 +947,10 @@ async function promptAI(): Promise<void> {
         addAndRender('tool_call', '', { tool: name, args });
 
         if (activePlan) {
-          const matchingStep = findPlanStepForTool(activePlan.plan, name);
-          if (matchingStep) {
-            updatePlanStep(activePlan.element, matchingStep.id, 'in_progress');
+          const step = getCurrentPlanStep(activePlan);
+          if (step) {
+            step.status = 'in_progress';
+            updatePlanStep(activePlan.element, step.id, 'in_progress');
           }
         }
 
@@ -955,9 +970,10 @@ async function promptAI(): Promise<void> {
           });
           addAndRender('tool_result', result, { tool: name });
           if (activePlan) {
-            const matchingStep = findPlanStepForTool(activePlan.plan, name);
-            if (matchingStep) {
-              updatePlanStep(activePlan.element, matchingStep.id, 'done', String(result).substring(0, 50));
+            const step = getCurrentPlanStep(activePlan);
+            if (step) {
+              step.status = 'done';
+              updatePlanStep(activePlan.element, step.id, 'done', String(result).substring(0, 50));
             }
           }
           // Wait briefly between tools to let the page settle
@@ -968,9 +984,10 @@ async function promptAI(): Promise<void> {
           const errMsg = (e as Error).message;
           addAndRender('tool_error', errMsg, { tool: name });
           if (activePlan) {
-            const matchingStep = findPlanStepForTool(activePlan.plan, name);
-            if (matchingStep) {
-              updatePlanStep(activePlan.element, matchingStep.id, 'failed', errMsg.substring(0, 50));
+            const step = getCurrentPlanStep(activePlan);
+            if (step) {
+              step.status = 'failed';
+              updatePlanStep(activePlan.element, step.id, 'failed', errMsg.substring(0, 50));
             }
           }
           toolResponses.push({
