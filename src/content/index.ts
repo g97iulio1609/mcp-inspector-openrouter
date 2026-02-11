@@ -67,6 +67,215 @@ if (window.__wmcp_loaded) {
     }
   });
 
+  // ── Message handler helpers ──
+
+  function handlePing(reply: (r?: unknown) => void): boolean {
+    reply({ status: 'pong' });
+    return false;
+  }
+
+  function handleSetLockMode(
+    msg: ContentScriptMessage,
+    reply: (r?: unknown) => void,
+  ): boolean {
+    const locked = (msg as { inputArgs?: { locked?: boolean } }).inputArgs?.locked ?? true;
+    if (locked) {
+      stopDomObserver();
+      console.debug('[WebMCP] DOM observer STOPPED (locked)');
+    } else {
+      startDomObserver();
+      console.debug('[WebMCP] DOM observer STARTED (live mode)');
+    }
+    reply({ locked });
+    return false;
+  }
+
+  function handleGetPageContext(reply: (r?: unknown) => void): boolean {
+    reply(extractPageContext());
+    return false;
+  }
+
+  function handleListTools(reply: (r?: unknown) => void): boolean {
+    listToolsAlwaysAugment();
+    if (navigator.modelContextTesting?.registerToolsChangedCallback) {
+      navigator.modelContextTesting.registerToolsChangedCallback(
+        () => listToolsAlwaysAugment(),
+      );
+    }
+    reply({ queued: true });
+    return false;
+  }
+
+  function handleExecuteTool(
+    msg: ContentScriptMessage,
+    reply: (r?: unknown) => void,
+  ): boolean {
+    const execMsg = msg as { name: string; inputArgs: string | Record<string, unknown> };
+    const toolName = execMsg.name;
+    const inputArgs = execMsg.inputArgs;
+
+    // Check inferred tools first
+    const inferredTool = inferredToolsMap.get(toolName);
+    if (inferredTool) {
+      console.debug(
+        `[WebMCP] Execute INFERRED tool "${toolName}" with`,
+        inputArgs,
+      );
+      const parsedArgs: Record<string, unknown> =
+        typeof inputArgs === 'string'
+          ? JSON.parse(inputArgs)
+          : inputArgs;
+
+      const tier = getSecurityTier(inferredTool);
+      const tierInfo = SECURITY_TIERS[tier];
+
+      if (!tierInfo.autoExecute && !yoloMode) {
+        const promise = new Promise<unknown>((resolve, reject) => {
+          pendingConfirmations.set(toolName, {
+            resolve,
+            reject,
+            tool: inferredTool,
+            args: parsedArgs,
+          });
+        });
+
+        chrome.runtime.sendMessage({
+          action: 'CONFIRM_EXECUTION',
+          toolName,
+          description: inferredTool.description,
+          tier,
+        });
+
+        promise
+          .then((result) => reply(result))
+          .catch((err: Error) => reply(JSON.stringify(err.message)));
+        return true;
+      }
+
+      executorRegistry
+        .execute(inferredTool, parsedArgs)
+        .then((result) => reply(result))
+        .catch((err: Error) => {
+          console.error('[WebMCP] Inferred execution error:', err);
+          reply(JSON.stringify(err.message || String(err)));
+        });
+      return true;
+    }
+
+    // Native/declarative tool execution
+    if (!navigator.modelContextTesting) {
+      reply(
+        JSON.stringify(
+          'WebMCP native API not available for native tool execution',
+        ),
+      );
+      return false;
+    }
+
+    // Validate tool exists in native API before executing
+    try {
+      const nativeTools = navigator.modelContextTesting.listTools() || [];
+      const exists = (nativeTools as Tool[]).some((t) => t.name === toolName);
+      if (!exists) {
+        reply(JSON.stringify(`Tool "${toolName}" not found`));
+        return false;
+      }
+    } catch { /* proceed anyway if listTools fails */ }
+
+    const normalizedArgs = normalizeToolArgs(toolName, inputArgs);
+    console.debug(
+      `[WebMCP] Execute NATIVE tool "${toolName}" with`,
+      normalizedArgs,
+    );
+
+    let targetFrame: HTMLIFrameElement | null = null;
+    let loadPromise: Promise<void> | undefined;
+
+    const formTarget = document.querySelector(
+      `form[toolname="${toolName}"]`,
+    )?.getAttribute('target');
+    if (formTarget) {
+      targetFrame = document.querySelector(
+        `[name="${formTarget}"]`,
+      ) as HTMLIFrameElement | null;
+      if (targetFrame) {
+        loadPromise = new Promise<void>((resolve) => {
+          targetFrame!.addEventListener('load', () => resolve(), {
+            once: true,
+          });
+        });
+      }
+    }
+
+    navigator.modelContextTesting
+      .executeTool(toolName, normalizedArgs)
+      .then(async (result: unknown) => {
+        let finalResult = result;
+        if (
+          finalResult === null &&
+          targetFrame &&
+          loadPromise
+        ) {
+          console.debug(
+            `[WebMCP] Waiting for form target to load`,
+          );
+          await loadPromise;
+          finalResult =
+            await (targetFrame as HTMLIFrameElement).contentWindow
+              ?.navigator?.modelContextTesting
+              ?.getCrossDocumentScriptToolResult();
+        }
+        reply(finalResult);
+      })
+      .catch((err: Error) => {
+        console.error('[WebMCP] Execution error:', err);
+        reply(JSON.stringify(err.message || String(err)));
+      });
+    return true;
+  }
+
+  function handleGetCrossDocumentResult(reply: (r?: unknown) => void): boolean {
+    if (!navigator.modelContextTesting) {
+      reply(JSON.stringify('WebMCP native API not available'));
+      return false;
+    }
+    console.debug('[WebMCP] Get cross document script tool result');
+    navigator.modelContextTesting
+      .getCrossDocumentScriptToolResult()
+      .then(reply)
+      .catch((err: Error) => reply(JSON.stringify(err.message)));
+    return true;
+  }
+
+  function handleConfirmExecute(
+    msg: ContentScriptMessage,
+    reply: (r?: unknown) => void,
+  ): boolean {
+    const pending = pendingConfirmations.get((msg as { toolName: string }).toolName);
+    if (pending) {
+      pendingConfirmations.delete((msg as { toolName: string }).toolName);
+      executorRegistry
+        .execute(pending.tool, pending.args)
+        .then((result) => pending.resolve(result))
+        .catch((err: Error) => pending.reject(err));
+    }
+    reply({ confirmed: true });
+    return false;
+  }
+
+  function handleCancelExecute(
+    msg: ContentScriptMessage,
+    reply: (r?: unknown) => void,
+  ): boolean {
+    const cancelled = pendingConfirmations.get((msg as { toolName: string }).toolName);
+    if (cancelled) {
+      pendingConfirmations.delete((msg as { toolName: string }).toolName);
+      cancelled.reject(new Error('Execution cancelled by user'));
+    }
+    reply({ cancelled: true });
+    return false;
+  }
+
   // ── Message handler ──
   chrome.runtime.onMessage.addListener(
     (
@@ -77,191 +286,23 @@ if (window.__wmcp_loaded) {
       try {
         switch (msg.action) {
           case 'PING':
-            reply({ status: 'pong' });
-            return false;
-
-          case 'SET_LOCK_MODE': {
-            const locked = msg.inputArgs?.locked ?? true;
-            if (locked) {
-              stopDomObserver();
-              console.debug('[WebMCP] DOM observer STOPPED (locked)');
-            } else {
-              startDomObserver();
-              console.debug('[WebMCP] DOM observer STARTED (live mode)');
-            }
-            reply({ locked });
-            return false;
-          }
-
+            return handlePing(reply);
+          case 'SET_LOCK_MODE':
+            return handleSetLockMode(msg, reply);
           case 'GET_PAGE_CONTEXT':
-            reply(extractPageContext());
-            return false;
-
+            return handleGetPageContext(reply);
           case 'LIST_TOOLS':
-            listToolsAlwaysAugment();
-            if (navigator.modelContextTesting?.registerToolsChangedCallback) {
-              navigator.modelContextTesting.registerToolsChangedCallback(
-                () => listToolsAlwaysAugment(),
-              );
-            }
-            reply({ queued: true });
-            return false;
-
-          case 'EXECUTE_TOOL': {
-            const toolName = msg.name;
-            const inputArgs = msg.inputArgs;
-
-            // Check inferred tools first
-            const inferredTool = inferredToolsMap.get(toolName);
-            if (inferredTool) {
-              console.debug(
-                `[WebMCP] Execute INFERRED tool "${toolName}" with`,
-                inputArgs,
-              );
-              const parsedArgs: Record<string, unknown> =
-                typeof inputArgs === 'string'
-                  ? JSON.parse(inputArgs)
-                  : inputArgs;
-
-              const tier = getSecurityTier(inferredTool);
-              const tierInfo = SECURITY_TIERS[tier];
-
-              if (!tierInfo.autoExecute && !yoloMode) {
-                // Queue for sidebar confirmation
-                const promise = new Promise<unknown>((resolve, reject) => {
-                  pendingConfirmations.set(toolName, {
-                    resolve,
-                    reject,
-                    tool: inferredTool,
-                    args: parsedArgs,
-                  });
-                });
-
-                chrome.runtime.sendMessage({
-                  action: 'CONFIRM_EXECUTION',
-                  toolName,
-                  description: inferredTool.description,
-                  tier,
-                });
-
-                promise
-                  .then((result) => reply(result))
-                  .catch((err: Error) => reply(JSON.stringify(err.message)));
-                return true;
-              }
-
-              executorRegistry
-                .execute(inferredTool, parsedArgs)
-                .then((result) => reply(result))
-                .catch((err: Error) => {
-                  console.error('[WebMCP] Inferred execution error:', err);
-                  reply(JSON.stringify(err.message || String(err)));
-                });
-              return true;
-            }
-
-            // Native/declarative tool execution
-            if (!navigator.modelContextTesting) {
-              reply(
-                JSON.stringify(
-                  'WebMCP native API not available for native tool execution',
-                ),
-              );
-              return false;
-            }
-
-            const normalizedArgs = normalizeToolArgs(toolName, inputArgs);
-            console.debug(
-              `[WebMCP] Execute NATIVE tool "${toolName}" with`,
-              normalizedArgs,
-            );
-
-            let targetFrame: HTMLIFrameElement | null = null;
-            let loadPromise: Promise<void> | undefined;
-
-            const formTarget = document.querySelector(
-              `form[toolname="${toolName}"]`,
-            )?.getAttribute('target');
-            if (formTarget) {
-              targetFrame = document.querySelector(
-                `[name="${formTarget}"]`,
-              ) as HTMLIFrameElement | null;
-              if (targetFrame) {
-                loadPromise = new Promise<void>((resolve) => {
-                  targetFrame!.addEventListener('load', () => resolve(), {
-                    once: true,
-                  });
-                });
-              }
-            }
-
-            navigator.modelContextTesting
-              .executeTool(toolName, normalizedArgs)
-              .then(async (result: unknown) => {
-                let finalResult = result;
-                if (
-                  finalResult === null &&
-                  targetFrame &&
-                  loadPromise
-                ) {
-                  console.debug(
-                    `[WebMCP] Waiting for form target to load`,
-                  );
-                  await loadPromise;
-                  finalResult =
-                    await (targetFrame as HTMLIFrameElement).contentWindow
-                      ?.navigator?.modelContextTesting
-                      ?.getCrossDocumentScriptToolResult();
-                }
-                reply(finalResult);
-              })
-              .catch((err: Error) => {
-                console.error('[WebMCP] Execution error:', err);
-                reply(JSON.stringify(err.message || String(err)));
-              });
-            return true;
-          }
-
-          case 'GET_CROSS_DOCUMENT_SCRIPT_TOOL_RESULT': {
-            if (!navigator.modelContextTesting) {
-              reply(JSON.stringify('WebMCP native API not available'));
-              return false;
-            }
-            console.debug('[WebMCP] Get cross document script tool result');
-            navigator.modelContextTesting
-              .getCrossDocumentScriptToolResult()
-              .then(reply)
-              .catch((err: Error) => reply(JSON.stringify(err.message)));
-            return true;
-          }
-
-          case 'CONFIRM_EXECUTE': {
-            const pending = pendingConfirmations.get(msg.toolName);
-            if (pending) {
-              pendingConfirmations.delete(msg.toolName);
-              executorRegistry
-                .execute(pending.tool, pending.args)
-                .then((result) => pending.resolve(result))
-                .catch((err: Error) => pending.reject(err));
-            }
-            reply({ confirmed: true });
-            return false;
-          }
-
-          case 'CANCEL_EXECUTE': {
-            const cancelled = pendingConfirmations.get(msg.toolName);
-            if (cancelled) {
-              pendingConfirmations.delete(msg.toolName);
-              cancelled.reject(new Error('Execution cancelled by user'));
-            }
-            reply({ cancelled: true });
-            return false;
-          }
-
+            return handleListTools(reply);
+          case 'EXECUTE_TOOL':
+            return handleExecuteTool(msg, reply);
+          case 'GET_CROSS_DOCUMENT_SCRIPT_TOOL_RESULT':
+            return handleGetCrossDocumentResult(reply);
+          case 'CONFIRM_EXECUTE':
+            return handleConfirmExecute(msg, reply);
+          case 'CANCEL_EXECUTE':
+            return handleCancelExecute(msg, reply);
           case 'CAPTURE_SCREENSHOT':
-            // Screenshot is handled by background script, not content script
             return false;
-
           default:
             return false;
         }
@@ -390,13 +431,47 @@ if (window.__wmcp_loaded) {
     const h1 = document.querySelector('h1');
     if (h1) mainHeading = h1.textContent?.trim();
 
-    // Full visible page text (truncated to 8000 chars)
+    // Full visible page text via TreeWalker (avoids layout-triggering innerText)
     try {
-      const rawText = document.body.innerText;
+      const MAX_TEXT_NODES = 5000;
+      const MAX_TEXT_LEN = 8000;
+      const chunks: string[] = [];
+      let totalLen = 0;
+      let nodeCount = 0;
+
+      const walker = document.createTreeWalker(
+        document.body,
+        NodeFilter.SHOW_TEXT,
+        {
+          acceptNode(node: Node): number {
+            const parent = node.parentElement;
+            if (!parent) return NodeFilter.FILTER_REJECT;
+            const tag = parent.tagName;
+            if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT')
+              return NodeFilter.FILTER_REJECT;
+            // Skip hidden elements (offsetParent is null for display:none, except for body/fixed)
+            if (!parent.offsetParent && parent !== document.body && getComputedStyle(parent).position !== 'fixed')
+              return NodeFilter.FILTER_REJECT;
+            return NodeFilter.FILTER_ACCEPT;
+          },
+        },
+      );
+
+      let textNode: Node | null;
+      while ((textNode = walker.nextNode())) {
+        if (nodeCount++ >= MAX_TEXT_NODES) break;
+        const t = textNode.textContent?.trim();
+        if (!t) continue;
+        chunks.push(t);
+        totalLen += t.length;
+        if (totalLen >= MAX_TEXT_LEN) break;
+      }
+
+      const rawText = chunks.join(' ');
       if (rawText) {
-        pageText = rawText.length <= 8000
+        pageText = rawText.length <= MAX_TEXT_LEN
           ? rawText
-          : rawText.slice(0, 8000) + '\n[…truncated]';
+          : rawText.slice(0, MAX_TEXT_LEN) + ' […truncated]';
       }
     } catch { /* ignore */ }
 
@@ -551,6 +626,11 @@ if (window.__wmcp_loaded) {
     });
   }
 
+  // ── Scanner result cache ──
+  const SCANNER_CACHE_TTL_MS = 2000;
+  let scannerCacheTime = 0;
+  let scannerCacheResult: Tool[] | null = null;
+
   // ── 3-tier tool discovery (always-augment model) ──
 
   async function listToolsAlwaysAugment(): Promise<void> {
@@ -582,11 +662,22 @@ if (window.__wmcp_loaded) {
       declarativeTools = enrichToolSchemas(declarativeTools);
     }
 
-    // Tier 3: Auto-Inference — ALWAYS runs
-    try {
-      inferredTools = scannerRegistry.scanAll();
-    } catch (e) {
-      console.warn('[WebMCP] Inference scan failed:', e);
+    // Tier 3: Auto-Inference — use cache if fresh
+    const now = Date.now();
+    if (scannerCacheResult && (now - scannerCacheTime) < SCANNER_CACHE_TTL_MS) {
+      inferredTools = scannerCacheResult;
+      console.debug('[WebMCP] Using cached scanner results');
+    } else {
+      try {
+        const scanStart = performance.now();
+        inferredTools = scannerRegistry.scanAll();
+        const scanMs = (performance.now() - scanStart).toFixed(1);
+        console.debug(`[WebMCP] Scanner scan completed in ${scanMs}ms (${inferredTools.length} tools)`);
+        scannerCacheResult = inferredTools;
+        scannerCacheTime = now;
+      } catch (e) {
+        console.warn('[WebMCP] Inference scan failed:', e);
+      }
     }
 
     // Store inferred tools for execution routing
@@ -596,7 +687,20 @@ if (window.__wmcp_loaded) {
     }
 
     // Union merge (native wins on name collision)
-    const tools = mergeToolSets(nativeTools, declarativeTools, inferredTools);
+    let tools = mergeToolSets(nativeTools, declarativeTools, inferredTools);
+
+    // Post-merge cleanup: deduplicate by name (keep highest confidence),
+    // filter out low-confidence tools, sort by category
+    const dedupMap = new Map<string, Tool>();
+    for (const tool of tools) {
+      const existing = dedupMap.get(tool.name);
+      if (!existing || (tool.confidence ?? 0) > (existing.confidence ?? 0)) {
+        dedupMap.set(tool.name, tool);
+      }
+    }
+    tools = [...dedupMap.values()]
+      .filter((t) => (t.confidence ?? 1) >= 0.3)
+      .sort((a, b) => (a.category ?? '').localeCompare(b.category ?? ''));
 
     // Strip internal properties before sending to sidebar
     const cleanTools: CleanTool[] = tools.map(
@@ -715,6 +819,8 @@ if (window.__wmcp_loaded) {
   function onSpaNavigation(): void {
     if (location.href === lastSpaUrl) return;
     lastSpaUrl = location.href;
+    // Invalidate scanner cache on navigation
+    scannerCacheResult = null;
     if (spaDebounce) clearTimeout(spaDebounce);
     spaDebounce = setTimeout(() => {
       console.debug('[WebMCP] SPA navigation detected →', location.href);
@@ -722,19 +828,24 @@ if (window.__wmcp_loaded) {
     }, SPA_NAVIGATION_DEBOUNCE_MS);
   }
 
-  const origPushState = history.pushState.bind(history);
-  history.pushState = function (...args: Parameters<typeof history.pushState>): void {
-    origPushState(...args);
-    onSpaNavigation();
-  };
+  // Safely patch pushState/replaceState — guard against pages that override these
+  try {
+    const origPushState = history.pushState.bind(history);
+    history.pushState = function (...args: Parameters<typeof history.pushState>): void {
+      origPushState(...args);
+      onSpaNavigation();
+    };
 
-  const origReplaceState = history.replaceState.bind(history);
-  history.replaceState = function (
-    ...args: Parameters<typeof history.replaceState>
-  ): void {
-    origReplaceState(...args);
-    onSpaNavigation();
-  };
+    const origReplaceState = history.replaceState.bind(history);
+    history.replaceState = function (
+      ...args: Parameters<typeof history.replaceState>
+    ): void {
+      origReplaceState(...args);
+      onSpaNavigation();
+    };
+  } catch (e) {
+    console.warn('[WebMCP] Could not patch history API:', e);
+  }
 
   window.addEventListener('popstate', onSpaNavigation);
 

@@ -19,6 +19,7 @@ function jsonResponse(body: unknown, ok = true, status = 200): Response {
     status,
     statusText: ok ? 'OK' : 'Error',
     json: () => Promise.resolve(body),
+    headers: new Headers(),
   } as unknown as Response;
 }
 
@@ -222,11 +223,24 @@ describe('OpenRouterChat', () => {
 
   it('throws on API error without retrying', async () => {
     mockFetch.mockResolvedValueOnce(
-      jsonResponse({ error: { message: 'Rate limited' } }, false, 429),
+      jsonResponse({ error: { message: 'Bad request' } }, false, 400),
     );
 
-    await expect(chat.sendMessage({ message: 'test' })).rejects.toThrow('Rate limited');
+    await expect(chat.sendMessage({ message: 'test' })).rejects.toThrow('Bad request');
     expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries on 429 rate limit with backoff', async () => {
+    const rateLimitResp = jsonResponse({ error: { message: 'Rate limited' } }, false, 429);
+    mockFetch.mockResolvedValue(rateLimitResp);
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await expect(chat.sendMessage({ message: 'test' })).rejects.toThrow('Rate limited');
+    // fetchWithBackoff retries up to 3 times on 429
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+
+    warnSpy.mockRestore();
   });
 
   it('parses function calls from response', async () => {

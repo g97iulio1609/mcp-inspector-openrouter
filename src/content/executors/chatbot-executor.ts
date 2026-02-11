@@ -48,37 +48,72 @@ export class ChatbotExecutor extends BaseExecutor {
       document.execCommand('insertText', false, text);
       this.dispatchEvents(el, ['input', 'change']);
     } else {
-      // Textarea (ChatGPT, Grok, etc.) — use native setter for React compat
+      // Textarea (ChatGPT, Grok, etc.)
       const textarea = el as HTMLTextAreaElement;
       const nativeSetter = Object.getOwnPropertyDescriptor(
         HTMLTextAreaElement.prototype,
         'value',
       )?.set;
+
+      // First try: native setter + bulk events (works for ChatGPT)
       if (nativeSetter) {
         nativeSetter.call(textarea, text);
       } else {
         textarea.value = text;
       }
-      // Dispatch multiple events for React/framework compatibility
       el.dispatchEvent(new Event('input', { bubbles: true }));
       el.dispatchEvent(new Event('change', { bubbles: true }));
-      // React 16+ uses synthetic events — also fire a native InputEvent
       el.dispatchEvent(new InputEvent('input', { bubbles: true, data: text, inputType: 'insertText' }));
+
+      // Wait briefly, then check if React picked it up
+      await new Promise((r) => setTimeout(r, 50));
+
+      // If the textarea value was reset by React, simulate char-by-char typing.
+      // This is needed for Grok and other React apps that don't respond to bulk value setting.
+      if (textarea.value !== text) {
+        if (nativeSetter) {
+          nativeSetter.call(textarea, '');
+        } else {
+          textarea.value = '';
+        }
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+
+        for (const char of text) {
+          el.dispatchEvent(new KeyboardEvent('keydown', { key: char, bubbles: true }));
+          if (nativeSetter) {
+            nativeSetter.call(textarea, textarea.value + char);
+          } else {
+            textarea.value += char;
+          }
+          el.dispatchEvent(new InputEvent('input', { bubbles: true, data: char, inputType: 'insertText' }));
+          el.dispatchEvent(new KeyboardEvent('keyup', { key: char, bubbles: true }));
+        }
+      }
     }
 
     // Let frameworks react
-    await new Promise((r) => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 150));
 
     return this.ok(`Typed prompt: "${text}"`);
   }
 
   private async sendMessage(el: Element): Promise<ExecutionResult> {
     const btn = el as HTMLButtonElement;
-    // Some chatbots disable the send button until input has content — wait up to 500ms
-    for (let i = 0; i < 5 && btn.disabled; i++) {
+    // Some chatbots disable the send button until input has content — wait up to 1s
+    for (let i = 0; i < 10 && (btn.disabled || btn.getAttribute('aria-disabled') === 'true'); i++) {
       await new Promise((r) => setTimeout(r, 100));
     }
-    if (btn.disabled) {
+    if (btn.disabled || btn.getAttribute('aria-disabled') === 'true') {
+      // Fallback: try pressing Enter on the textarea instead
+      const textarea = btn.closest('form')?.querySelector('textarea')
+        ?? document.querySelector('textarea');
+      if (textarea) {
+        (textarea as HTMLElement).focus();
+        textarea.dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }),
+        );
+        return this.ok('Send via Enter key (button was disabled)');
+      }
       return this.fail('Send button is still disabled — input may not have been recognized');
     }
     btn.click();

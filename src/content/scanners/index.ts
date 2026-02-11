@@ -59,10 +59,18 @@ export class ScannerRegistry {
   scanAll(root: Document | Element | ShadowRoot = document): Tool[] {
     const allTools: Tool[] = [];
 
-    // Scan main root
+    // Scan main root with per-scanner timing
     for (const scanner of this.scanners) {
       try {
-        allTools.push(...scanner.scan(root));
+        const t0 = performance.now();
+        const results = scanner.scan(root);
+        const elapsed = performance.now() - t0;
+        if (elapsed > 10) {
+          console.debug(
+            `[ScannerRegistry] Scanner "${scanner.category}" took ${elapsed.toFixed(1)}ms (${results.length} tools)`,
+          );
+        }
+        allTools.push(...results);
       } catch (e) {
         console.warn(
           `[ScannerRegistry] Scanner "${scanner.category}" failed:`,
@@ -77,7 +85,15 @@ export class ScannerRegistry {
       for (const sr of shadowRoots) {
         for (const scanner of this.scanners) {
           try {
-            allTools.push(...scanner.scan(sr));
+            const t0 = performance.now();
+            const results = scanner.scan(sr);
+            const elapsed = performance.now() - t0;
+            if (elapsed > 10) {
+              console.debug(
+                `[ScannerRegistry] Shadow scanner "${scanner.category}" took ${elapsed.toFixed(1)}ms`,
+              );
+            }
+            allTools.push(...results);
           } catch (e) {
             console.warn(
               `[ScannerRegistry] Shadow scanner "${scanner.category}" failed:`,

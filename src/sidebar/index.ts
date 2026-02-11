@@ -157,16 +157,75 @@ function isNavigationTool(toolName: string): boolean {
 }
 
 /**
- * Get the current plan step (sequential tracking).
- * Advances `currentStepIdx` to the first non-done step.
+ * Smart truncation of page text: prioritizes headings, first paragraphs,
+ * and structured data (lists, tables) over mid-page prose.
  */
+function smartTruncatePageText(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text;
+
+  const lines = text.split('\n');
+  const prioritized: string[] = [];
+  const rest: string[] = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    // Prioritize lines that look like headings, list items, key-value pairs, or prices
+    if (
+      /^#{1,3}\s/.test(trimmed) ||       // markdown headings
+      /^[A-Z][A-Z\s]{2,}$/.test(trimmed) || // ALL-CAPS headings
+      /^[-•*]\s/.test(trimmed) ||         // list items
+      /^\d+[.)]\s/.test(trimmed) ||       // numbered items
+      /[:=]\s/.test(trimmed) ||           // key: value pairs
+      /\$\d|€\d|£\d/.test(trimmed)        // prices
+    ) {
+      prioritized.push(line);
+    } else {
+      rest.push(line);
+    }
+  }
+
+  // Build output: prioritized content first, then fill remaining budget with rest
+  let result = '';
+  for (const line of prioritized) {
+    if (result.length + line.length + 1 > maxLen - 20) break;
+    result += line + '\n';
+  }
+  for (const line of rest) {
+    if (result.length + line.length + 1 > maxLen - 20) break;
+    result += line + '\n';
+  }
+
+  if (result.length < text.length) {
+    result += '\n[…truncated]';
+  }
+  return result;
+}
+
+/**
+ * Get the current plan step (batch-aware tracking).
+ * Within a single tool batch, all tools map to the same step.
+ * Only advances after advancePlanStep() is called (i.e. batch completes).
+ */
+let _batchStepIdx: number | null = null;
+
 function getCurrentPlanStep(ap: { plan: Plan; currentStepIdx: number }): PlanStep | null {
   const { plan } = ap;
+  // Within a batch, keep returning the same step
+  if (_batchStepIdx !== null) {
+    return plan.steps[_batchStepIdx] ?? null;
+  }
   // Skip already-done steps
   while (ap.currentStepIdx < plan.steps.length && plan.steps[ap.currentStepIdx].status === 'done') {
     ap.currentStepIdx++;
   }
+  _batchStepIdx = ap.currentStepIdx;
   return plan.steps[ap.currentStepIdx] ?? null;
+}
+
+/** Call after a batch of tools completes to allow step advancement. */
+function advancePlanStep(): void {
+  _batchStepIdx = null;
 }
 
 /**
@@ -192,6 +251,8 @@ function markRemainingStepsDone(ap: { plan: Plan; element: HTMLElement }): void 
 async function waitForPageAndRescan(
   tabId: number,
 ): Promise<{ pageContext: PageContext | null; tools: CleanTool[] }> {
+  const rescanStart = performance.now();
+
   // Wait for tab to finish loading (or timeout after 5s)
   await new Promise<void>((resolve) => {
     let resolved = false;
@@ -214,19 +275,21 @@ async function waitForPageAndRescan(
     setTimeout(done, 5000);
   });
 
-  // Ensure content script is injected and ready
-  await ensureContentScript(tabId);
+  console.debug(`[Sidebar] Page load wait took ${(performance.now() - rescanStart).toFixed(0)}ms`);
 
-  // Retry GET_PAGE_CONTEXT up to 3 times (content script may not be ready)
+  // Retry GET_PAGE_CONTEXT up to 3 times, re-injecting content script each time
   let pageContext: PageContext | null = null;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
+      await ensureContentScript(tabId);
       pageContext = (await chrome.tabs.sendMessage(tabId, {
         action: 'GET_PAGE_CONTEXT',
       })) as PageContext;
+      console.debug(`[Sidebar] GET_PAGE_CONTEXT succeeded on attempt ${attempt + 1} (${(performance.now() - rescanStart).toFixed(0)}ms)`);
       break;
-    } catch {
-      await new Promise((r) => setTimeout(r, 500));
+    } catch (e) {
+      console.warn(`[Sidebar] GET_PAGE_CONTEXT attempt ${attempt + 1}/3 failed:`, e);
+      await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
     }
   }
 
@@ -253,6 +316,7 @@ async function waitForPageAndRescan(
   }
   const tools = await toolsPromise;
 
+  console.debug(`[Sidebar] Rescan completed in ${(performance.now() - rescanStart).toFixed(0)}ms`);
   return { pageContext, tools };
 }
 
@@ -856,16 +920,29 @@ async function promptAI(): Promise<void> {
         ]
       : message;
 
+  // Trim history if it exceeds threshold to reduce token costs
+  chat.trimHistory(20);
+
   let currentResult: ChatSendResponse = await chat.sendMessage({
     message: userMessage,
     config,
   });
   let finalResponseGiven = false;
   const MAX_TOOL_ITERATIONS = 10;
+  const TOOL_LOOP_TIMEOUT_MS = 60_000;
+  const toolLoopStart = performance.now();
   let iteration = 0;
 
   while (!finalResponseGiven && iteration < MAX_TOOL_ITERATIONS) {
     iteration++;
+
+    // Timeout protection for entire tool loop
+    if (performance.now() - toolLoopStart > TOOL_LOOP_TIMEOUT_MS) {
+      addAndRender('error', '⚠️ Tool execution loop timed out after 60s. Stopping.');
+      console.warn('[Sidebar] Tool loop timed out after 60s');
+      break;
+    }
+
     const response = currentResult;
     trace.push({ response });
     const functionCalls: readonly ParsedFunctionCall[] =
@@ -1027,8 +1104,14 @@ async function promptAI(): Promise<void> {
         }
       }
 
+      // Batch complete — advance plan step tracker
+      if (activePlan) {
+        advancePlanStep();
+      }
+
       const updatedConfig = getConfig(pageContext);
       trace.push({ userPrompt: { message: toolResponses, config: updatedConfig } });
+      chat.trimHistory(20);
       currentResult = await chat.sendMessage({
         message: toolResponses,
         config: updatedConfig,
@@ -1201,7 +1284,7 @@ function getConfig(pageContext?: PageContext | null): ChatConfig {
       pageContext.headings.forEach(h => systemInstruction.push(`  - ${h}`));
     }
     if (pageContext.pageText) {
-      systemInstruction.push('', '**PAGE CONTENT (visible text):**', pageContext.pageText);
+      systemInstruction.push('', '**PAGE CONTENT (visible text):**', smartTruncatePageText(pageContext.pageText, 4000));
     }
   }
 

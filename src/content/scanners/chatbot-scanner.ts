@@ -25,6 +25,8 @@ const CHATBOT_INPUT_SELECTORS = [
   'textarea[placeholder*="Frag" i]',
   'textarea[placeholder*="Demande" i]',
   'textarea[placeholder*="Pregunta" i]',
+  'textarea[placeholder*="anything" i]',
+  'textarea[placeholder*="qualsiasi" i]',
   'div[contenteditable="true"][role="textbox"]',
   // Generic patterns
   'textarea[aria-label*="message" i]',
@@ -40,8 +42,9 @@ const SEND_BUTTON_SELECTORS = [
   'button[aria-label*="envoyer" i]',
   'button[aria-label*="enviar" i]',
   'button[aria-label*="senden" i]',
-  // Grok-specific: button with arrow SVG near the textarea
+  // Grok-specific: button with arrow SVG near the textarea (any language)
   'button[aria-label*="Grok" i]',
+  'button[aria-label*="grok" i]',
 ];
 
 export class ChatbotScanner extends BaseScanner {
@@ -49,10 +52,22 @@ export class ChatbotScanner extends BaseScanner {
 
   scan(root: Document | Element | ShadowRoot): Tool[] {
     const tools: Tool[] = [];
-    const inputs = (root as ParentNode).querySelectorAll(CHATBOT_INPUT_SELECTORS);
+    let inputs: Element[] = Array.from((root as ParentNode).querySelectorAll(CHATBOT_INPUT_SELECTORS));
     const seen = new Set<Element>();
 
-    for (const inp of inputs) {
+    // Heuristic fallback: if no inputs matched, look for a lone visible textarea
+    // with no name attribute (common in React chatbot UIs like Grok)
+    if (inputs.length === 0) {
+      const allTextareas = (root as ParentNode).querySelectorAll('textarea');
+      const visibleTextareas = Array.from(allTextareas).filter(
+        (ta) => !ta.getAttribute('name') && this.isVisible(ta),
+      );
+      if (visibleTextareas.length === 1) {
+        inputs = visibleTextareas;
+      }
+    }
+
+    for (const inp of Array.from(inputs)) {
       if (seen.has(inp) || this.isClaimed(inp) || !this.isVisible(inp)) continue;
       seen.add(inp);
 
@@ -139,15 +154,15 @@ export class ChatbotScanner extends BaseScanner {
       if (btn && this.isVisible(btn)) return btn;
     }
 
-    // Walk up from the input to find the closest container with a button
+    // Walk up from the input to find the closest container with a button.
+    // Grok nests textarea very deeply, so walk up to 12 levels.
     let container: Element | null = input;
-    for (let i = 0; i < 6 && container; i++) {
+    for (let i = 0; i < 12 && container; i++) {
       container = container.parentElement;
       if (!container) break;
-      // Look for submit-like buttons (with SVG icons, typically the send button)
-      const buttons = container.querySelectorAll('button:not([disabled])');
+      // Look for submit-like buttons (including disabled ones — Grok disables until text is entered)
+      const buttons = container.querySelectorAll('button');
       for (const btn of buttons) {
-        if (!this.isVisible(btn)) continue;
         const ariaLabel = btn.getAttribute('aria-label')?.toLowerCase() ?? '';
         const hasSvg = !!btn.querySelector('svg');
         // Match buttons that look like send buttons (have arrow SVG, or aria hint)
@@ -163,8 +178,8 @@ export class ChatbotScanner extends BaseScanner {
       }
       // If we found a form or major container, try the first button with an SVG
       if (container.tagName === 'FORM' || container.querySelectorAll('textarea, [contenteditable]').length > 0) {
-        const btn = container.querySelector('button svg[viewBox]')?.closest('button');
-        if (btn && this.isVisible(btn)) return btn;
+        const svgBtn = container.querySelector('button svg[viewBox]')?.closest('button');
+        if (svgBtn) return svgBtn;
       }
     }
 
