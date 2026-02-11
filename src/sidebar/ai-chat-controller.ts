@@ -203,8 +203,9 @@ export class AIChatController {
 
     const currentTools = getCurrentTools();
 
-    // Fetch context from mentioned tabs
+    // Fetch context and tools from mentioned tabs
     const mentionContexts: { tabId: number; title: string; context: PageContext }[] = [];
+    let mentionedTools: CleanTool[] = [];
     for (const mention of this.activeMentions) {
       try {
         // Ensure content script is injected
@@ -213,12 +214,23 @@ export class AIChatController {
 
         const ctx = await chrome.tabs.sendMessage(mention.tabId, { action: 'GET_PAGE_CONTEXT' }) as PageContext;
         if (ctx) mentionContexts.push({ tabId: mention.tabId, title: mention.title, context: ctx });
+
+        // Fetch tools from mentioned tab
+        const toolsResult = await chrome.tabs.sendMessage(mention.tabId, { action: 'GET_TOOLS_SYNC' }) as { tools?: CleanTool[] };
+        if (toolsResult?.tools?.length) {
+          mentionedTools = [...mentionedTools, ...toolsResult.tools];
+        }
       } catch (e) {
         console.warn(`[Sidebar] Could not fetch context from mentioned tab ${mention.title}:`, e);
       }
     }
 
-    const config = buildChatConfig(pageContext, currentTools, planManager.planModeEnabled, mentionContexts);
+    // Merge current page tools + mentioned tab tools (dedup by name, mentioned wins)
+    const allTools = mentionedTools.length > 0
+      ? [...currentTools, ...mentionedTools.filter(mt => !currentTools.some(ct => ct.name === mt.name))]
+      : currentTools;
+
+    const config = buildChatConfig(pageContext, allTools, planManager.planModeEnabled, mentionContexts);
     convCtrl.state.trace.push({ userPrompt: { message, config } });
 
     let screenshotDataUrl: string | undefined;
@@ -253,11 +265,11 @@ export class AIChatController {
       tabId: targetTabId,
       initialResult,
       pageContext,
-      currentTools,
+      currentTools: allTools,
       planManager,
       trace: convCtrl.state.trace,
       addMessage: (role, content, meta) => convCtrl.addAndRender(role, content, meta),
-      getConfig: (ctx) => buildChatConfig(ctx, currentTools, planManager.planModeEnabled, mentionContexts),
+      getConfig: (ctx) => buildChatConfig(ctx, allTools, planManager.planModeEnabled, mentionContexts),
       onToolsUpdated: (tools) => { setCurrentTools(tools); },
     });
 

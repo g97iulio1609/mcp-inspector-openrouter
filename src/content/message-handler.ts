@@ -60,11 +60,20 @@ export function createMessageHandler(registry: ToolRegistry): void {
     return false;
   }
 
+  function handleGetToolsSync(reply: (r?: unknown) => void): boolean {
+    registry.listToolsAlwaysAugment().then((tools) => {
+      reply({ tools, url: location.href });
+    }).catch(() => {
+      reply({ tools: [], url: location.href });
+    });
+    return true; // async response
+  }
+
   function handleListTools(reply: (r?: unknown) => void): boolean {
     registry.listToolsAlwaysAugment();
     if (navigator.modelContextTesting?.registerToolsChangedCallback) {
       navigator.modelContextTesting.registerToolsChangedCallback(
-        () => registry.listToolsAlwaysAugment(),
+        () => { registry.listToolsAlwaysAugment(); },
       );
     }
     reply({ queued: true });
@@ -258,6 +267,8 @@ export function createMessageHandler(registry: ToolRegistry): void {
             return handleGetPageContext(reply);
           case 'LIST_TOOLS':
             return handleListTools(reply);
+          case 'GET_TOOLS_SYNC':
+            return handleGetToolsSync(reply);
           case 'EXECUTE_TOOL':
             return handleExecuteTool(msg, reply);
           case 'GET_CROSS_DOCUMENT_SCRIPT_TOOL_RESULT':

@@ -44,7 +44,7 @@ export class ToolRegistry {
     this.scannerCacheResult = null;
   }
 
-  async listToolsAlwaysAugment(): Promise<void> {
+  async listToolsAlwaysAugment(): Promise<CleanTool[]> {
     let nativeTools: Tool[] = [];
     let declarativeTools: Tool[] = [];
     let inferredTools: Tool[] = [];
@@ -130,6 +130,7 @@ export class ToolRegistry {
     );
 
     chrome.runtime.sendMessage({ tools: cleanTools, url: location.href });
+    return cleanTools;
   }
 
   // ── DOM Observer ──

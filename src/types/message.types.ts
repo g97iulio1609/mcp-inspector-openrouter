@@ -49,12 +49,17 @@ export interface CaptureScreenshotMessage {
   readonly action: 'CAPTURE_SCREENSHOT';
 }
 
+export interface GetToolsSyncMessage {
+  readonly action: 'GET_TOOLS_SYNC';
+}
+
 /** All messages that can be sent TO the content script */
 export type ContentScriptMessage =
   | PingMessage
   | SetLockModeMessage
   | GetPageContextMessage
   | ListToolsMessage
+  | GetToolsSyncMessage
   | ExecuteToolMessage
   | GetCrossDocumentResultMessage
   | ConfirmExecuteMessage

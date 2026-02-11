@@ -394,7 +394,8 @@ export function buildChatConfig(
   if (mentionContexts.length > 0) {
     systemInstruction.push('', '**CROSS-TAB CONTEXTS (from @mentioned tabs):**');
     systemInstruction.push('The user referenced other browser tabs. Below is the context from each mentioned tab.');
-    systemInstruction.push('When the user asks to perform an action "on" or "at" a mentioned tab, the tools will be executed on that tab automatically.');
+    systemInstruction.push('**IMPORTANT:** You have FULL ACCESS to the tools/actions on the mentioned tab. When the user asks to perform an action "on" a mentioned tab, USE THE AVAILABLE TOOLS to execute it. The tool execution will be automatically routed to the correct tab.');
+    systemInstruction.push('Do NOT say you cannot interact with the mentioned tab — you CAN, through the available tools.');
 
     for (const mc of mentionContexts) {
       systemInstruction.push('', `--- @${mc.title} (Tab ID: ${mc.tabId}) ---`);
