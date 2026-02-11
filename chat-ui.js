@@ -85,17 +85,102 @@ export function populateSelector(conversations, activeId) {
     }
 }
 
-/** Simple text formatting for AI responses */
+/**
+ * Lightweight markdown → HTML renderer for AI chat bubbles.
+ * Supports: headings, bold, italic, fenced code blocks, inline code,
+ *           ordered/unordered lists, links, and paragraph breaks.
+ */
 function formatAIText(text) {
     if (!text) return '';
+
+    // 1. Extract fenced code blocks to protect them from further processing
+    const codeBlocks = [];
+    text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+        const escaped = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        codeBlocks.push(`<pre class="md-codeblock"><code class="lang-${lang || 'text'}">${escaped.trimEnd()}</code></pre>`);
+        return `\x00CB${codeBlocks.length - 1}\x00`;
+    });
+
+    // 2. Escape HTML in the remaining text
+    text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    // 3. Process block-level elements line by line
+    const lines = text.split('\n');
+    const out = [];
+    let inList = null; // 'ul' | 'ol' | null
+
+    for (let i = 0; i < lines.length; i++) {
+        let line = lines[i];
+
+        // Code block placeholder — emit as-is
+        const cbMatch = line.match(/^\x00CB(\d+)\x00$/);
+        if (cbMatch) {
+            if (inList) { out.push(`</${inList}>`); inList = null; }
+            out.push(codeBlocks[+cbMatch[1]]);
+            continue;
+        }
+
+        // Headings: ### heading
+        const hMatch = line.match(/^(#{1,4})\s+(.+)$/);
+        if (hMatch) {
+            if (inList) { out.push(`</${inList}>`); inList = null; }
+            const level = hMatch[1].length;
+            out.push(`<h${level + 2} class="md-heading">${inlineFormat(hMatch[2])}</h${level + 2}>`);
+            continue;
+        }
+
+        // Unordered list: - item or * item
+        const ulMatch = line.match(/^[\s]*[-*]\s+(.+)$/);
+        if (ulMatch) {
+            if (inList !== 'ul') {
+                if (inList) out.push(`</${inList}>`);
+                out.push('<ul>');
+                inList = 'ul';
+            }
+            out.push(`<li>${inlineFormat(ulMatch[1])}</li>`);
+            continue;
+        }
+
+        // Ordered list: 1. item
+        const olMatch = line.match(/^[\s]*\d+\.\s+(.+)$/);
+        if (olMatch) {
+            if (inList !== 'ol') {
+                if (inList) out.push(`</${inList}>`);
+                out.push('<ol>');
+                inList = 'ol';
+            }
+            out.push(`<li>${inlineFormat(olMatch[1])}</li>`);
+            continue;
+        }
+
+        // Close any open list
+        if (inList) { out.push(`</${inList}>`); inList = null; }
+
+        // Empty line → paragraph break
+        if (line.trim() === '') {
+            out.push('<br>');
+            continue;
+        }
+
+        // Regular paragraph
+        out.push(`<p class="md-p">${inlineFormat(line)}</p>`);
+    }
+
+    if (inList) out.push(`</${inList}>`);
+    return out.join('');
+}
+
+/** Inline formatting: bold, italic, inline code, links */
+function inlineFormat(text) {
     return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
+        // Bold + italic: ***text***
+        .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
         // Bold: **text**
         .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        // Italic: *text* (but not inside words like file_name)
+        .replace(/(?<!\w)\*([^*]+?)\*(?!\w)/g, '<em>$1</em>')
         // Inline code: `text`
-        .replace(/`([^`]+)`/g, '<code>$1</code>')
-        // Newlines
-        .replace(/\n/g, '<br>');
+        .replace(/`([^`]+?)`/g, '<code>$1</code>')
+        // Links: [text](url)
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
 }
