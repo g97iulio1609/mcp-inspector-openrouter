@@ -14,7 +14,16 @@
 
 <body>
   <div class="container">
-    <h2 class="collapsible-header">WebMCP Tools</h2>
+    <div class="section-header-row">
+      <h2 class="collapsible-header">WebMCP Tools</h2>
+      <div class="lock-toggle">
+        <label class="toggle-switch">
+          <input type="checkbox" id="lockToggle">
+          <span class="toggle-slider"></span>
+        </label>
+        <span id="lockLabel" class="lock-label live">🔓 Live</span>
+      </div>
+    </div>
     <div class="section-content">
 
       <div id="status"></div>

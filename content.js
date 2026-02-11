@@ -16,6 +16,18 @@ chrome.runtime.onMessage.addListener(({ action, name, inputArgs }, _, reply) => 
       reply({ status: 'pong' });
       return false;
     }
+    if (action == 'SET_LOCK_MODE') {
+      const locked = inputArgs?.locked ?? true;
+      if (locked) {
+        stopDomObserver();
+        console.debug('[WebMCP] DOM observer STOPPED (locked)');
+      } else {
+        startDomObserver();
+        console.debug('[WebMCP] DOM observer STARTED (live mode)');
+      }
+      reply({ locked });
+      return false;
+    }
     if (action == 'LIST_TOOLS') {
       listTools();
       if (navigator.modelContextTesting.registerToolsChangedCallback) {
@@ -122,6 +134,53 @@ function listTools() {
   const tools = navigator.modelContextTesting.listTools();
   console.debug(`[WebMCP] Got ${tools.length} tools`, tools);
   chrome.runtime.sendMessage({ tools, url: location.href });
+}
+
+// --- DOM Mutation Observer ---
+let domObserver = null;
+let domObserverDebounce = null;
+
+function startDomObserver() {
+  if (domObserver) return; // already running
+  domObserver = new MutationObserver((mutations) => {
+    // Check if any mutation is relevant to WebMCP forms
+    const relevant = mutations.some(m => {
+      // Added or removed nodes that contain or are form[toolname]
+      for (const node of [...m.addedNodes, ...m.removedNodes]) {
+        if (node.nodeType === 1 && (node.matches?.('form[toolname]') || node.querySelector?.('form[toolname]'))) {
+          return true;
+        }
+      }
+      // Attribute changes on form[toolname] or its children
+      if (m.type === 'attributes' && m.target.closest?.('form[toolname]')) {
+        return true;
+      }
+      return false;
+    });
+    if (relevant) {
+      // Debounce to avoid rapid-fire updates
+      clearTimeout(domObserverDebounce);
+      domObserverDebounce = setTimeout(() => {
+        console.debug('[WebMCP] DOM change detected, refreshing tools...');
+        listTools();
+      }, 300);
+    }
+  });
+  domObserver.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['toolname', 'tooldescription', 'name', 'value', 'type']
+  });
+  console.debug('[WebMCP] DOM observer initialized');
+}
+
+function stopDomObserver() {
+  if (domObserver) {
+    domObserver.disconnect();
+    domObserver = null;
+  }
+  clearTimeout(domObserverDebounce);
 }
 
 window.addEventListener('toolactivated', ({ toolName }) => {
