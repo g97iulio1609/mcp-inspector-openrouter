@@ -17,6 +17,10 @@ import type { PlanManager } from './plan-manager';
 
 // ── Helpers ──
 
+function isBrowserTool(name: string): boolean {
+  return name.startsWith('browser.');
+}
+
 export function isNavigationTool(toolName: string): boolean {
   return (
     toolName.startsWith('search.') ||
@@ -190,6 +194,26 @@ export async function executeToolLoop(params: ToolLoopParams): Promise<ToolLoopR
 
         addMessage('tool_call', '', { tool: name, args });
         planManager.markStepInProgress();
+
+        // Browser tools are executed via background, not content script
+        if (isBrowserTool(name)) {
+          const result = await chrome.runtime.sendMessage({
+            action: 'EXECUTE_BROWSER_TOOL',
+            name,
+            args,
+          });
+          const resultStr = typeof result === 'string' ? result : JSON.stringify(result);
+          addMessage('tool_result', resultStr, { tool: name });
+          planManager.markStepDone();
+          toolResponses.push({
+            functionResponse: {
+              name,
+              response: { result },
+              tool_call_id: id,
+            },
+          });
+          continue;
+        }
 
         let navigatedDuringBatch = false;
 

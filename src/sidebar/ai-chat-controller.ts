@@ -20,6 +20,7 @@ import { buildChatConfig } from './config-builder';
 import type { PlanManager } from './plan-manager';
 import { executeToolLoop } from './tool-loop';
 import type { ConversationController } from './conversation-controller';
+import { createMentionAutocomplete, type MentionAutocomplete, type TabMention } from './tab-mention';
 
 export interface AIChatDeps {
   userPromptText: HTMLTextAreaElement;
@@ -37,6 +38,8 @@ export class AIChatController {
   private userPromptPendingId = 0;
   private lastSuggestedUserPrompt = '';
   private readonly deps: AIChatDeps;
+  private mentionAC: MentionAutocomplete | undefined;
+  private activeMentions: TabMention[] = [];
 
   constructor(deps: AIChatDeps) {
     this.deps = deps;
@@ -92,6 +95,12 @@ export class AIChatController {
         convCtrl.addAndRender('error', `⚠️ Error: "${error}"`);
       }
     };
+
+    // @mention autocomplete
+    this.mentionAC = createMentionAutocomplete(
+      userPromptText,
+      userPromptText.parentElement!,
+    );
 
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area === 'local' && (changes[STORAGE_KEY_API_KEY] || changes[STORAGE_KEY_MODEL])) {
@@ -169,7 +178,15 @@ export class AIChatController {
       }
     }
 
-    const message = userPromptText.value;
+    // Parse @mentions
+    let message = userPromptText.value;
+    if (this.mentionAC) {
+      const parsed = this.mentionAC.parseMentions(message);
+      message = parsed.cleanText;
+      this.activeMentions = parsed.mentions;
+    } else {
+      this.activeMentions = [];
+    }
     userPromptText.value = '';
     this.lastSuggestedUserPrompt = '';
 
@@ -185,7 +202,23 @@ export class AIChatController {
     }
 
     const currentTools = getCurrentTools();
-    const config = buildChatConfig(pageContext, currentTools, planManager.planModeEnabled);
+
+    // Fetch context from mentioned tabs
+    const mentionContexts: { tabId: number; title: string; context: PageContext }[] = [];
+    for (const mention of this.activeMentions) {
+      try {
+        // Ensure content script is injected
+        try { await chrome.tabs.sendMessage(mention.tabId, { action: 'PING' }); }
+        catch { await chrome.scripting.executeScript({ target: { tabId: mention.tabId }, files: ['content.js'] }); }
+
+        const ctx = await chrome.tabs.sendMessage(mention.tabId, { action: 'GET_PAGE_CONTEXT' }) as PageContext;
+        if (ctx) mentionContexts.push({ tabId: mention.tabId, title: mention.title, context: ctx });
+      } catch (e) {
+        console.warn(`[Sidebar] Could not fetch context from mentioned tab ${mention.title}:`, e);
+      }
+    }
+
+    const config = buildChatConfig(pageContext, currentTools, planManager.planModeEnabled, mentionContexts);
     convCtrl.state.trace.push({ userPrompt: { message, config } });
 
     let screenshotDataUrl: string | undefined;
@@ -212,16 +245,19 @@ export class AIChatController {
 
     const initialResult = await chat.sendMessage({ message: userMessage, config });
 
+    // Determine target tab for tool execution
+    const targetTabId = this.activeMentions.length > 0 ? this.activeMentions[0].tabId : tab.id;
+
     const loopResult = await executeToolLoop({
       chat,
-      tabId: tab.id,
+      tabId: targetTabId,
       initialResult,
       pageContext,
       currentTools,
       planManager,
       trace: convCtrl.state.trace,
       addMessage: (role, content, meta) => convCtrl.addAndRender(role, content, meta),
-      getConfig: (ctx) => buildChatConfig(ctx, currentTools, planManager.planModeEnabled),
+      getConfig: (ctx) => buildChatConfig(ctx, currentTools, planManager.planModeEnabled, mentionContexts),
       onToolsUpdated: (tools) => { setCurrentTools(tools); },
     });
 

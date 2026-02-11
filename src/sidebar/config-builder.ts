@@ -200,12 +200,92 @@ function buildPlanToolDeclarations(): FunctionDeclaration[] {
   ];
 }
 
+// ── Browser tool declarations ──
+
+function buildBrowserToolDeclarations(): FunctionDeclaration[] {
+  return [
+    {
+      name: 'browser.new-tab',
+      description: 'Open a new browser tab with the specified URL',
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: 'URL to open (default: about:blank)' },
+          active: { type: 'boolean', description: 'Whether to focus the new tab (default: true)' },
+        },
+      },
+    },
+    {
+      name: 'browser.close-tab',
+      description: 'Close a browser tab by ID, or close the active tab if no ID is given',
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          tabId: { type: 'number', description: 'Tab ID to close. If omitted, closes the active tab.' },
+        },
+      },
+    },
+    {
+      name: 'browser.list-tabs',
+      description: 'List all open tabs in the current browser window with their IDs, titles, and URLs',
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {},
+      },
+    },
+    {
+      name: 'browser.focus-tab',
+      description: 'Switch to (focus) a specific tab by its ID',
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          tabId: { type: 'number', description: 'The tab ID to focus/switch to' },
+        },
+        required: ['tabId'],
+      },
+    },
+    {
+      name: 'browser.go-back',
+      description: 'Navigate the active tab back in history (like clicking the browser back button)',
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {},
+      },
+    },
+    {
+      name: 'browser.go-forward',
+      description: 'Navigate the active tab forward in history',
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {},
+      },
+    },
+    {
+      name: 'browser.reload',
+      description: 'Reload a tab (by ID) or the active tab',
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          tabId: { type: 'number', description: 'Tab ID to reload. If omitted, reloads the active tab.' },
+        },
+      },
+    },
+  ];
+}
+
 // ── Main config builder ──
+
+interface MentionContext {
+  tabId: number;
+  title: string;
+  context: PageContext;
+}
 
 export function buildChatConfig(
   pageContext: PageContext | null | undefined,
   currentTools: readonly CleanTool[],
   planModeEnabled: boolean,
+  mentionContexts: MentionContext[] = [],
 ): ChatConfig {
   const systemInstruction: string[] = [
     'You are an intelligent assistant with access to tools on this web page.',
@@ -310,6 +390,27 @@ export function buildChatConfig(
     }
   }
 
+  // Cross-tab mention contexts
+  if (mentionContexts.length > 0) {
+    systemInstruction.push('', '**CROSS-TAB CONTEXTS (from @mentioned tabs):**');
+    systemInstruction.push('The user referenced other browser tabs. Below is the context from each mentioned tab.');
+    systemInstruction.push('When the user asks to perform an action "on" or "at" a mentioned tab, the tools will be executed on that tab automatically.');
+
+    for (const mc of mentionContexts) {
+      systemInstruction.push('', `--- @${mc.title} (Tab ID: ${mc.tabId}) ---`);
+      if (mc.context.title) systemInstruction.push(`Page title: ${mc.context.title}`);
+      if (mc.context.mainHeading) systemInstruction.push(`Main heading: ${mc.context.mainHeading}`);
+      if (mc.context.metaDescription) systemInstruction.push(`Meta: ${mc.context.metaDescription}`);
+      if (mc.context.headings?.length) {
+        systemInstruction.push('Headings:');
+        mc.context.headings.forEach(h => systemInstruction.push(`  - ${h}`));
+      }
+      if (mc.context.pageText) {
+        systemInstruction.push('Page content:', smartTruncatePageText(mc.context.pageText, 2000));
+      }
+    }
+  }
+
   const functionDeclarations: FunctionDeclaration[] = currentTools.map(
     (tool) => ({
       name: tool.name,
@@ -325,6 +426,7 @@ export function buildChatConfig(
   );
 
   functionDeclarations.push(...buildPlanToolDeclarations());
+  functionDeclarations.push(...buildBrowserToolDeclarations());
 
   return {
     systemInstruction,

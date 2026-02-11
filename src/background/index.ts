@@ -17,6 +17,7 @@ import {
   STORAGE_KEY_API_KEY,
 } from '../utils/constants';
 import { ChromeStorageAdapter } from '../services/adapters';
+import { handleBrowserTool } from './browser-tools';
 
 const storage = new ChromeStorageAdapter();
 
@@ -132,6 +133,15 @@ chrome.runtime.onMessage.addListener(
         .then(dataUrl => sendResponse({ screenshot: dataUrl }))
         .catch(err => sendResponse({ error: (err as Error).message }));
       return true; // async response
+    }
+
+    // Browser tool execution
+    if (typeof msg === 'object' && msg !== null && (msg as Record<string, unknown>).action === 'EXECUTE_BROWSER_TOOL') {
+      const toolMsg = msg as { action: string; name: string; args: Record<string, unknown> };
+      handleBrowserTool(toolMsg.name, toolMsg.args || {})
+        .then(sendResponse)
+        .catch((err: Error) => sendResponse({ success: false, message: err.message }));
+      return true;
     }
 
     return undefined;

@@ -3,7 +3,7 @@
   "name": "Model Context Tool Inspector (OpenRouter)",
   "version": "2.0.0",
   "description": "Inspect, monitor, and execute WebMCP tools manually or with OpenRouter",
-  "permissions": ["sidePanel", "activeTab", "scripting", "storage"],
+  "permissions": ["sidePanel", "activeTab", "scripting", "storage", "tabs"],
   "host_permissions": ["<all_urls>"],
   "background": { "service_worker": "background.js" },
   "content_scripts": [
