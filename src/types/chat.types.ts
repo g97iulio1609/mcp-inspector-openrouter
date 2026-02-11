@@ -26,6 +26,8 @@ export interface Message {
   readonly tool?: string;
   /** Tool arguments (for tool_call role) */
   readonly args?: Record<string, unknown>;
+  /** Reasoning/thinking content from reasoning models */
+  readonly reasoning?: string;
 }
 
 // ── Conversations ──

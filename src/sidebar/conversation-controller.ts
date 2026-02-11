@@ -118,6 +118,7 @@ export class ConversationController {
       ts: Date.now(),
       ...(meta.tool ? { tool: meta.tool as string } : {}),
       ...(meta.args ? { args: meta.args as Record<string, unknown> } : {}),
+      ...(meta.reasoning ? { reasoning: meta.reasoning as string } : {}),
     });
   }
 }

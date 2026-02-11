@@ -194,8 +194,65 @@ export class OpenRouterChat {
         ? assistantMessage.content
         : '';
 
+    const reasoning = typeof assistantMessage.reasoning === 'string'
+      ? assistantMessage.reasoning
+      : '';
+
+    const finishReason = data.choices[0].finish_reason;
+
+    if (finishReason === 'length' && !textContent && reasoning) {
+      console.warn('[OpenRouter] Model ran out of tokens — reasoning consumed all output. Consider increasing max_tokens.');
+    }
+
+    // Retry once if finish_reason is 'length' with empty content and no function calls
+    if (finishReason === 'length' && !textContent && (!functionCalls || functionCalls.length === 0)) {
+      console.warn('[OpenRouter] Empty content with finish_reason=length, retrying with trimmed history and increased max_tokens.');
+      this.trimHistory(10);
+      const retryBody = this.buildRequestBody(config);
+      const currentMaxTokens = (retryBody.max_tokens as number) ?? DEFAULT_MAX_TOKENS;
+      retryBody.max_tokens = Math.round(currentMaxTokens * 1.5);
+
+      const retryRes = await fetchWithBackoff(OPENROUTER_CHAT_ENDPOINT, {
+        method: 'POST',
+        headers: buildHeaders(this.apiKey),
+        body: JSON.stringify(retryBody),
+      });
+
+      if (retryRes.ok) {
+        const retryData = (await retryRes.json()) as AIResponse;
+        if (retryData.choices?.length && retryData.choices[0].message) {
+          const retryMsg = retryData.choices[0].message;
+          const retryText = typeof retryMsg.content === 'string' ? retryMsg.content : '';
+          const retryReasoning = typeof retryMsg.reasoning === 'string' ? retryMsg.reasoning : '';
+          const retryFinishReason = retryData.choices[0].finish_reason;
+          const retryFunctionCalls: ParsedFunctionCall[] | undefined =
+            retryMsg.tool_calls?.map((tc) => ({
+              name: tc.function.name,
+              args: safeParseArguments(tc.function.arguments, tc.id, tc.function.name),
+              id: tc.id,
+            }));
+
+          // Update history with retry response
+          this.history[this.history.length - 1] = {
+            ...retryMsg,
+            content: retryMsg.content ?? '',
+          };
+
+          return {
+            text: retryText,
+            reasoning: retryReasoning || undefined,
+            finishReason: retryFinishReason,
+            functionCalls: retryFunctionCalls,
+            candidates: retryData.choices as readonly AIResponseChoice[],
+          };
+        }
+      }
+    }
+
     return {
       text: textContent,
+      reasoning: reasoning || undefined,
+      finishReason,
       functionCalls,
       candidates: data.choices as readonly AIResponseChoice[],
     };

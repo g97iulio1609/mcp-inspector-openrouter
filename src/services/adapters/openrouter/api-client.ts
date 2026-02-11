@@ -14,7 +14,7 @@ import type { OpenRouterErrorBody } from './types';
 // ── Constants ──
 
 export const DEFAULT_TEMPERATURE = 0.7;
-export const DEFAULT_MAX_TOKENS = 4096;
+export const DEFAULT_MAX_TOKENS = 16384;
 export const MAX_HISTORY_MESSAGES = 30;
 const RATE_LIMIT_BASE_DELAY_MS = 1000;
 const RATE_LIMIT_MAX_RETRIES = 3;

@@ -167,13 +167,13 @@ export async function executeToolLoop(params: ToolLoopParams): Promise<ToolLoopR
     }
 
     if (functionCalls.length === 0) {
-      if (!response.text) {
+      if (!response.text && !response.reasoning) {
         addMessage(
           'error',
           `⚠️ AI response has no text: ${JSON.stringify(response.candidates)}`,
         );
       } else {
-        addMessage('ai', response.text.trim());
+        addMessage('ai', response.text?.trim() ?? '', { reasoning: response.reasoning });
       }
       planManager.markRemainingStepsDone();
       finalResponseGiven = true;

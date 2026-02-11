@@ -365,3 +365,61 @@
   .bubble { max-width: 80%; }
   .chat-container { padding: 16px 12px; }
 }
+
+/* ── Reasoning Accordion ── */
+.reasoning-accordion {
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-elevated);
+}
+
+.reasoning-accordion[open] {
+  background: var(--bg);
+}
+
+.reasoning-summary {
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: color var(--transition-fast);
+}
+
+.reasoning-summary:hover {
+  color: var(--text);
+}
+
+.reasoning-summary span {
+  font-style: italic;
+}
+
+.reasoning-summary::marker {
+  font-size: 10px;
+}
+
+.reasoning-body {
+  padding: 8px 12px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+  font-family: var(--font-mono, 'SF Mono', 'Monaco', 'Menlo', monospace);
+}
+
+.reasoning-notice {
+  font-size: 12px;
+  color: var(--warning, #e5a100);
+  padding: 4px 0;
+  font-style: italic;
+}

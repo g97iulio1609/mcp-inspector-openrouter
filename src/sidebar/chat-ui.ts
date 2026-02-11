@@ -36,9 +36,36 @@ export function appendBubble(
     case 'user':
       body.textContent = content;
       break;
-    case 'ai':
-      body.innerHTML = formatAIText(content);
+    case 'ai': {
+      if (meta.reasoning) {
+        const details = document.createElement('details');
+        details.className = 'reasoning-accordion';
+
+        const summary = document.createElement('summary');
+        summary.className = 'reasoning-summary';
+        summary.innerHTML = '💭 <span>Reasoning</span>';
+        details.appendChild(summary);
+
+        const reasoningBody = document.createElement('div');
+        reasoningBody.className = 'reasoning-body';
+        reasoningBody.textContent = meta.reasoning;
+        details.appendChild(reasoningBody);
+
+        body.appendChild(details);
+      }
+
+      if (content) {
+        const textDiv = document.createElement('div');
+        textDiv.innerHTML = formatAIText(content);
+        body.appendChild(textDiv);
+      } else if (meta.reasoning) {
+        const notice = document.createElement('div');
+        notice.className = 'reasoning-notice';
+        notice.textContent = '⚠️ The model used all output tokens for reasoning. Check the reasoning above for details.';
+        body.appendChild(notice);
+      }
       break;
+    }
     case 'tool_call':
       body.innerHTML = `<span class="tool-icon">⚡</span> <strong>${meta.tool ?? ''}</strong> <code>${JSON.stringify(meta.args ?? {})}</code>`;
       break;

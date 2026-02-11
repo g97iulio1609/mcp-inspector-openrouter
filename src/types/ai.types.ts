@@ -44,6 +44,8 @@ export interface ChatMessage {
   readonly tool_calls?: readonly ToolCall[];
   /** Used when role is 'tool' to reference the originating tool call */
   readonly tool_call_id?: string;
+  /** Reasoning/thinking content from reasoning models */
+  readonly reasoning?: string;
 }
 
 // ── Tool Calls ──
@@ -115,8 +117,10 @@ export interface AIUsage {
 /** Response from OpenRouterChat.sendMessage (internal format) */
 export interface ChatSendResponse {
   readonly text: string;
+  readonly reasoning?: string;
   readonly functionCalls?: readonly ParsedFunctionCall[];
   readonly candidates: readonly AIResponseChoice[];
+  readonly finishReason?: string;
 }
 
 /** Tool response sent back to the AI after execution */
