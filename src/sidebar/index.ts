@@ -13,7 +13,6 @@ import type {
   FunctionDeclaration,
 } from '../types';
 import { OpenRouterAdapter, OpenRouterChat } from '../services/adapters';
-import { ChromeStorageAdapter } from '../services/adapters';
 import {
   STORAGE_KEY_LOCK_MODE,
   STORAGE_KEY_API_KEY,
@@ -42,12 +41,8 @@ const toolResults = $<HTMLPreElement>('toolResults');
 const userPromptText = $<HTMLTextAreaElement>('userPromptText');
 const promptBtn = $<HTMLButtonElement>('promptBtn');
 const traceBtn = $<HTMLButtonElement>('traceBtn');
-const apiKeyInput = $<HTMLInputElement>('apiKey');
-const saveSettingsBtn = $<HTMLButtonElement>('saveSettingsBtn');
-const connectionStatus = $<HTMLDivElement>('connectionStatus');
 const lockToggle = $<HTMLInputElement>('lockToggle');
 const lockLabel = $<HTMLSpanElement>('lockLabel');
-const modelSelect = $<HTMLInputElement>('modelSelect');
 const conversationSelect = $<HTMLSelectElement>('conversationSelect');
 const newChatBtn = $<HTMLButtonElement>('newChatBtn');
 const deleteChatBtn = $<HTMLButtonElement>('deleteChatBtn');
@@ -57,6 +52,29 @@ const dialogDesc = $<HTMLParagraphElement>('dialogDesc');
 const dialogCancel = $<HTMLButtonElement>('dialogCancel');
 const dialogConfirm = $<HTMLButtonElement>('dialogConfirm');
 const chatContainer = $<HTMLDivElement>('chatContainer');
+const apiKeyHint = $<HTMLDivElement>('apiKeyHint');
+const openOptionsLink = $<HTMLAnchorElement>('openOptionsLink');
+
+// ── Tab switching ──
+
+const tabBtns = document.querySelectorAll<HTMLButtonElement>('.tab-btn');
+const tabPanels = document.querySelectorAll<HTMLDivElement>('.tab-panel');
+
+tabBtns.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const target = btn.dataset.tab;
+    tabBtns.forEach((b) => b.classList.toggle('active', b === btn));
+    tabPanels.forEach((p) =>
+      p.classList.toggle('active', p.id === `tab-${target}`),
+    );
+  });
+});
+
+// Open extension options page
+openOptionsLink.onclick = (e: Event): void => {
+  e.preventDefault();
+  chrome.runtime.openOptionsPage();
+};
 
 // ── State ──
 
@@ -66,8 +84,6 @@ let chat: OpenRouterChat | undefined;
 let trace: unknown[] = [];
 let currentSite = '';
 let currentConvId: string | null = null;
-
-const storage = new ChromeStorageAdapter();
 
 // ── Helpers ──
 
@@ -498,29 +514,33 @@ copyAsJSON.onclick = async (): Promise<void> => {
 // ── AI init ──
 
 async function initGenAI(): Promise<void> {
-  let env: { apiKey?: string; model?: string } | undefined;
-  try {
-    const res = await fetch('./.env.json');
-    if (res.ok) env = (await res.json()) as { apiKey?: string; model?: string };
-  } catch {
-    /* no env file */
-  }
-
-  const savedApiKey =
-    localStorage.getItem(STORAGE_KEY_API_KEY) ?? env?.apiKey ?? '';
+  // Read settings from chrome.storage.local (set via options page)
+  const result = await chrome.storage.local.get([
+    STORAGE_KEY_API_KEY,
+    STORAGE_KEY_MODEL,
+  ]);
+  let savedApiKey = (result[STORAGE_KEY_API_KEY] as string) ?? '';
   const savedModel =
-    localStorage.getItem(STORAGE_KEY_MODEL) ??
-    env?.model ??
-    DEFAULT_MODEL;
+    (result[STORAGE_KEY_MODEL] as string) ?? DEFAULT_MODEL;
 
-  if (savedApiKey) {
-    apiKeyInput.value = savedApiKey;
-    localStorage.setItem(STORAGE_KEY_API_KEY, savedApiKey);
-    await storage.set(STORAGE_KEY_API_KEY, savedApiKey);
+  // Fallback: try .env.json for initial setup
+  if (!savedApiKey) {
+    try {
+      const res = await fetch('./.env.json');
+      if (res.ok) {
+        const env = (await res.json()) as { apiKey?: string; model?: string };
+        if (env?.apiKey) {
+          savedApiKey = env.apiKey;
+          await chrome.storage.local.set({
+            [STORAGE_KEY_API_KEY]: savedApiKey,
+            [STORAGE_KEY_MODEL]: env.model ?? savedModel,
+          });
+        }
+      }
+    } catch {
+      /* no env file */
+    }
   }
-  modelSelect.value = savedModel;
-  localStorage.setItem(STORAGE_KEY_MODEL, savedModel);
-  await storage.set(STORAGE_KEY_MODEL, savedModel);
 
   if (savedApiKey) {
     genAI = new OpenRouterAdapter({
@@ -528,51 +548,23 @@ async function initGenAI(): Promise<void> {
       model: savedModel,
     });
     promptBtn.disabled = false;
+    apiKeyHint.style.display = 'none';
   } else {
     genAI = undefined;
     promptBtn.disabled = true;
+    apiKeyHint.style.display = '';
   }
 }
 
 void initGenAI();
 
-saveSettingsBtn.onclick = async (): Promise<void> => {
-  const apiKey = apiKeyInput.value.trim();
-  const model = modelSelect.value.trim();
-
-  if (!apiKey) {
-    connectionStatus.textContent = '❌ Please enter an API key';
-    connectionStatus.className = 'status-message status-error';
-    return;
+// Re-init when settings change in options page
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && (changes[STORAGE_KEY_API_KEY] || changes[STORAGE_KEY_MODEL])) {
+    chat = undefined;
+    void initGenAI();
   }
-
-  connectionStatus.textContent = '⏳ Testing connection...';
-  connectionStatus.className = 'status-message';
-  saveSettingsBtn.disabled = true;
-
-  try {
-    const testAdapter = new OpenRouterAdapter({ apiKey });
-    await testAdapter.listModels();
-    localStorage.setItem(STORAGE_KEY_API_KEY, apiKey);
-    localStorage.setItem(STORAGE_KEY_MODEL, model);
-    await storage.set(STORAGE_KEY_API_KEY, apiKey);
-    await storage.set(STORAGE_KEY_MODEL, model);
-    await initGenAI();
-    connectionStatus.textContent =
-      '✅ Connection successful & settings saved!';
-    connectionStatus.className = 'status-message status-success';
-  } catch (error) {
-    connectionStatus.textContent = `❌ Connection failed: ${(error as Error).message}`;
-    connectionStatus.className = 'status-message status-error';
-  } finally {
-    saveSettingsBtn.disabled = false;
-  }
-};
-
-modelSelect.oninput = (): void => {
-  localStorage.setItem(STORAGE_KEY_MODEL, modelSelect.value);
-  if (chat) chat.model = modelSelect.value;
-};
+});
 
 // ── User prompt suggestion ──
 
@@ -637,8 +629,9 @@ async function promptAI(): Promise<void> {
   ensureConversation();
 
   if (!chat) {
-    const apiKey = localStorage.getItem(STORAGE_KEY_API_KEY) ?? '';
-    const model = localStorage.getItem(STORAGE_KEY_MODEL) ?? DEFAULT_MODEL;
+    const result = await chrome.storage.local.get([STORAGE_KEY_API_KEY, STORAGE_KEY_MODEL]);
+    const apiKey = (result[STORAGE_KEY_API_KEY] as string) ?? '';
+    const model = (result[STORAGE_KEY_MODEL] as string) ?? DEFAULT_MODEL;
     chat = new OpenRouterChat(apiKey, model);
     // Hydrate with existing conversation
     if (currentConvId && currentSite) {
@@ -949,18 +942,6 @@ function waitForPageLoad(tabId: number): Promise<void> {
     chrome.tabs.onUpdated.addListener(listener);
   });
 }
-
-// ── Collapsible sections ──
-
-document.querySelectorAll('.collapsible-header').forEach((header) => {
-  header.addEventListener('click', () => {
-    header.classList.toggle('collapsed');
-    const content = header.nextElementSibling;
-    if (content?.classList.contains('section-content')) {
-      content.classList.toggle('is-hidden');
-    }
-  });
-});
 
 // ── Security confirmation dialog ──
 

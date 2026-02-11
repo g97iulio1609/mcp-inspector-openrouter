@@ -13,9 +13,15 @@
 </head>
 
 <body>
-  <div class="container">
+  <!-- Tab bar -->
+  <nav class="tab-bar">
+    <button class="tab-btn active" data-tab="tools">🔧 Tools</button>
+    <button class="tab-btn" data-tab="chat">💬 Chat</button>
+  </nav>
+
+  <!-- ═══ Tools tab ═══ -->
+  <div class="tab-panel active" id="tab-tools">
     <div class="section-header-row">
-      <h2 class="collapsible-header">WebMCP Tools</h2>
       <div class="lock-toggle">
         <label class="toggle-switch">
           <input type="checkbox" id="lockToggle">
@@ -24,89 +30,67 @@
         <span id="lockLabel" class="lock-label live">🔓 Live</span>
       </div>
     </div>
-    <div class="section-content">
 
-      <div id="status"></div>
+    <div id="status"></div>
 
-      <div class="table-container">
-        <table id="resultsTable">
-          <thead>
-            <tr id="tableHeaderRow"></tr>
-          </thead>
-          <tbody id="tableBody"></tbody>
-        </table>
-        <div id="copyToClipboard">
-          <span id="copyAsScriptToolConfig">📝 Copy as ScriptToolConfig</span>
-          <span id="copyAsJSON">📝 Copy as JSON</span>
-        </div>
+    <div class="table-container">
+      <table id="resultsTable">
+        <thead>
+          <tr id="tableHeaderRow"></tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+      <div id="copyToClipboard">
+        <span id="copyAsScriptToolConfig">📝 Copy as ScriptToolConfig</span>
+        <span id="copyAsJSON">📝 Copy as JSON</span>
       </div>
     </div>
 
-    <h2 class="collapsible-header">AI Chat</h2>
-    <div class="section-content">
-
-      <!-- Conversation selector -->
-      <div class="chat-header">
-        <select id="conversationSelect"></select>
-        <button id="newChatBtn" class="icon-btn" title="New chat">＋</button>
-        <button id="deleteChatBtn" class="icon-btn danger" title="Delete conversation">🗑</button>
-      </div>
-
-      <!-- Chat bubbles -->
-      <div id="chatContainer" class="chat-container"></div>
-
-      <!-- Input area -->
-      <div class="chat-input-row">
-        <textarea id="userPromptText" placeholder="Send a message..." rows="2"></textarea>
-        <button id="promptBtn" disabled title="Send">▶</button>
-      </div>
-
-      <div class="form-group settings-group">
-        <details>
-          <summary>⚙️ Settings</summary>
-          <div class="settings-body">
-            <div class="form-group">
-              <label for="modelSelect">Model</label>
-              <input type="text" id="modelSelect" list="modelList" placeholder="e.g. google/gemini-2.0-flash-001" />
-              <datalist id="modelList">
-                <option value="google/gemini-2.0-flash-001">
-                <option value="anthropic/claude-3.5-sonnet:beta">
-                <option value="openai/gpt-4o">
-                <option value="deepseek/deepseek-chat">
-              </datalist>
-            </div>
-
-            <div class="form-group">
-              <label for="apiKey">OpenRouter API Key</label>
-              <input type="password" id="apiKey" placeholder="sk-or-v1-..." />
-              <div class="button-row">
-                <button id="saveSettingsBtn" class="secondary">Save & Test Connection</button>
-                <button id="traceBtn" class="secondary">Copy trace</button>
-              </div>
-              <div id="connectionStatus" class="status-message"></div>
-            </div>
-          </div>
-        </details>
-      </div>
-    </div>
-
-    <h2 class="collapsible-header">Manual Tool Execution</h2>
-    <div class="section-content">
+    <!-- Manual Tool Execution -->
+    <div class="card">
+      <div class="card-title">Manual Tool Execution</div>
       <div class="form-group">
         <label for="toolNames">Tool</label>
         <select id="toolNames"></select>
       </div>
-
       <div class="form-group">
         <label for="inputArgsText">Input Arguments</label>
         <textarea id="inputArgsText">{"text": "hello world"}</textarea>
       </div>
-
       <div class="form-group">
         <button id="executeBtn">Execute Tool</button>
       </div>
-
       <pre id="toolResults"></pre>
+    </div>
+  </div>
+
+  <!-- ═══ Chat tab ═══ -->
+  <div class="tab-panel" id="tab-chat">
+    <!-- API key hint (shown when not configured) -->
+    <div id="apiKeyHint" class="api-key-hint" style="display:none">
+      ⚠️ API key not configured.
+      <a href="#" id="openOptionsLink">Open extension settings</a> to set it up.
+    </div>
+
+    <!-- Conversation selector -->
+    <div class="chat-header">
+      <select id="conversationSelect"></select>
+      <button id="newChatBtn" class="icon-btn" title="New chat">＋</button>
+      <button id="deleteChatBtn" class="icon-btn danger" title="Delete conversation">🗑</button>
+    </div>
+
+    <!-- Chat bubbles -->
+    <div id="chatContainer" class="chat-container"></div>
+
+    <!-- Sticky input area -->
+    <div class="chat-input-area">
+      <div class="chat-input-row">
+        <textarea id="userPromptText" placeholder="Send a message..." rows="2"></textarea>
+        <button id="promptBtn" disabled title="Send">▶</button>
+      </div>
+      <div class="chat-input-actions">
+        <button id="traceBtn" class="secondary small">Copy trace</button>
+      </div>
     </div>
   </div>
 

@@ -13,6 +13,7 @@ module.exports = {
     background: './src/background/index.ts',
     content: './src/content/index.ts',
     sidebar: './src/sidebar/index.ts',
+    options: './src/options/index.ts',
   },
 
   output: {
@@ -47,6 +48,7 @@ module.exports = {
         { from: 'src/manifest.json', to: 'manifest.json' },
         { from: 'src/sidebar.html', to: 'sidebar.html' },
         { from: 'src/styles.css', to: 'styles.css' },
+        { from: 'src/options.html', to: 'options.html' },
       ],
     }),
   ],
