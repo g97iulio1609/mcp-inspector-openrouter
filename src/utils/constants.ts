@@ -126,12 +126,8 @@ export const AI_CLASSIFIER_TITLE = 'WMCP AI Classifier';
 
 // ── Content Script ──
 
-/** Content scripts injected in order on install */
+/** Content scripts injected on install (bundled into single file by webpack) */
 export const CONTENT_SCRIPTS: readonly string[] = [
-  'wmcp-inference-engine.js',
-  'wmcp-tool-executor.js',
-  'wmcp-merge.js',
-  'wmcp-ai-classifier.js',
   'content.js',
 ] as const;
 

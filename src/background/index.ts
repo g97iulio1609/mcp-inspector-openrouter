@@ -47,8 +47,8 @@ async function updateBadge(tabId: number): Promise<void> {
   chrome.action.setBadgeText({ text: '', tabId });
   chrome.action.setBadgeBackgroundColor({ color: BADGE_COLOR });
 
-  chrome.tabs.sendMessage(tabId, { action: 'LIST_TOOLS' }).catch(({ message }: Error) => {
-    chrome.runtime.sendMessage({ message });
+  chrome.tabs.sendMessage(tabId, { action: 'LIST_TOOLS' }).catch(() => {
+    // Content script not ready — ignore silently
   });
 }
 
