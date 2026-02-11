@@ -48,6 +48,11 @@ const convCtrl = new ConversationController(chatContainer, conversationSelect, {
 });
 
 // Helpers
+function isInjectableUrl(url: string | undefined): boolean {
+  if (!url) return false;
+  return url.startsWith('http://') || url.startsWith('https://');
+}
+
 async function ensureContentScript(tabId: number): Promise<void> {
   try { await chrome.tabs.sendMessage(tabId, { action: 'PING' }); }
   catch { await chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] }); }
@@ -111,8 +116,8 @@ initSecurityDialog(securityDialogRefs);
 (async (): Promise<void> => {
   try {
     const tab = await getCurrentTab();
-    if (!tab?.id || !tab.url) return;
-    convCtrl.state.currentSite = Store.siteKey(tab.url);
+    if (!tab?.id || !isInjectableUrl(tab.url)) return;
+    convCtrl.state.currentSite = Store.siteKey(tab.url!);
     await ensureContentScript(tab.id);
     await chrome.tabs.sendMessage(tab.id, { action: 'LIST_TOOLS' });
     await chrome.tabs.sendMessage(tab.id, { action: 'SET_LOCK_MODE', inputArgs: { locked: lockToggle.checked } });
@@ -137,6 +142,7 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
   toolNames.innerHTML = '';
   try {
     const tab = await chrome.tabs.get(activeInfo.tabId);
+    if (!isInjectableUrl(tab.url)) return;
     const sameSite = convCtrl.handleSiteChange(Store.siteKey(tab.url ?? ''));
     await ensureContentScript(activeInfo.tabId);
     await chrome.tabs.sendMessage(activeInfo.tabId, { action: 'LIST_TOOLS' });
