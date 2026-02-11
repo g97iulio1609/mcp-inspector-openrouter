@@ -62,7 +62,10 @@ function getSecurityTier(tool) {
     if (cat === 'form') return 2;
     if (cat === 'auth') return 2;
     if (cat === 'ecommerce') return 2;
-    if (cat === 'interactive' && name.startsWith('toggle-')) return 2;
+    if (cat === 'richtext') return 2;
+    if (cat === 'file-upload') return 2;
+    if (cat === 'social-action') return 2;
+    if (cat === 'interactive' && name.includes('.toggle-')) return 2;
     if (cat === 'search') return 1;
 
     // Default: navigation-level (cautious but not blocking)

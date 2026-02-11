@@ -121,16 +121,19 @@ Respond with a JSON array of objects, one per element, in the same order:
 [
   {
     "index": 0,
-    "name": "refined-tool-name",
+    "name": "category.action-slug",
     "description": "Better description of what this element does",
-    "category": "one of: form|navigation|search|interactive|media|ecommerce|auth|page-state|schema-org",
+    "category": "one of: form|navigation|search|interactive|media|ecommerce|auth|page-state|schema-org|richtext|file-upload|social-action",
     "confidence": 0.85
   }
 ]
 
 Rules:
-- Keep the name slug-friendly (lowercase, hyphens, no spaces)
+- Use MCP dot notation for names: category.action-slug (e.g. form.submit-login, richtext.compose-post)
 - Confidence should reflect how certain you are (0.7-1.0)
+- richtext = contenteditable / WYSIWYG editors / social media post composers
+- file-upload = file inputs, drop zones, upload buttons
+- social-action = like, share, follow, comment, repost buttons
 - If unsure, keep the original values but raise confidence slightly
 - Only return the JSON array, no other text`;
     }

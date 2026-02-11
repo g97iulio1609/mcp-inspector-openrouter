@@ -874,3 +874,68 @@ input:checked+.toggle-slider:before {
     background: #404040;
   }
 }
+
+/* ── Tool category grouping ── */
+.category-group-header {
+  background-color: #f3f4f6 !important;
+}
+
+.category-group-header td {
+  padding: 6px 10px;
+  border-top: 2px solid #e5e7eb;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.category-group-name {
+  font-weight: 800;
+  font-size: 10px;
+  text-transform: uppercase;
+  color: #4b5563;
+  letter-spacing: 0.05em;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.category-group-name::before {
+  content: '📁';
+  font-size: 12px;
+}
+
+.category-group-count {
+  background: #d1d5db;
+  color: #1f2937;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 9px;
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+.category-group-item:hover {
+  background-color: #f9fafb !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .category-group-header {
+    background-color: #262626 !important;
+  }
+
+  .category-group-header td {
+    border-top-color: #404040;
+    border-bottom-color: #404040;
+  }
+
+  .category-group-name {
+    color: #9ca3af;
+  }
+
+  .category-group-count {
+    background: #404040;
+    color: #d1d5db;
+  }
+
+  .category-group-item:hover {
+    background-color: #2d2d2d !important;
+  }
+}

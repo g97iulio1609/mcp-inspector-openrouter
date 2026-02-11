@@ -324,12 +324,24 @@ if (window.__wmcp_loaded) {
       const relevant = mutations.some(m => {
         // Added or removed nodes that contain or are form[toolname]
         for (const node of [...m.addedNodes, ...m.removedNodes]) {
-          if (node.nodeType === 1 && (node.matches?.('form[toolname]') || node.querySelector?.('form[toolname]'))) {
-            return true;
+          if (node.nodeType === 1) {
+            // Declarative forms
+            if (node.matches?.('form[toolname]') || node.querySelector?.('form[toolname]')) return true;
+            // Rich text / contenteditable
+            if (node.matches?.('[contenteditable="true"]') || node.querySelector?.('[contenteditable="true"]')) return true;
+            if (node.matches?.('[role="textbox"]') || node.querySelector?.('[role="textbox"]')) return true;
+            // File uploads
+            if (node.matches?.('input[type="file"]') || node.querySelector?.('input[type="file"]')) return true;
+            // Social actions (like, share, follow)
+            if (node.matches?.('[aria-label*="like" i], [aria-label*="share" i], [aria-label*="follow" i]')) return true;
           }
         }
         // Attribute changes on form[toolname] or its children
         if (m.type === 'attributes' && m.target.closest?.('form[toolname]')) {
+          return true;
+        }
+        // Attribute changes on contenteditable elements
+        if (m.type === 'attributes' && (m.attributeName === 'contenteditable' || m.attributeName === 'role')) {
           return true;
         }
         // Text/characterData changes inside form[toolname] (label edits, etc.)

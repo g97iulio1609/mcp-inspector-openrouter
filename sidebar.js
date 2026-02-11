@@ -272,71 +272,93 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => 
   executeBtn.disabled = false;
   copyToClipboard.hidden = false;
 
-  // Custom fixed columns: Source | Name | Category | Description | Confidence
-  ['Source', 'Name', 'Category', 'Description', 'Confidence'].forEach(label => {
+  // Custom fixed columns: Source | Name | Description | Confidence
+  ['Source', 'Name', 'Description', 'Confidence'].forEach(label => {
     const th = document.createElement('th');
     th.textContent = label;
     thead.appendChild(th);
   });
 
-  tools.forEach(item => {
-    const row = document.createElement('tr');
+  // ── Group tools by category (data-driven, no hardcoded names) ──
+  const grouped = new Map(); // category → items[]
+  for (const item of tools) {
+    const cat = item.category || 'other';
+    if (!grouped.has(cat)) grouped.set(cat, []);
+    grouped.get(cat).push(item);
+  }
 
-    // Source badge
-    const tdSource = document.createElement('td');
-    const src = item._source || 'unknown';
-    const isAI = item._aiRefined;
-    const badgeClass = isAI ? 'badge-ai'
-      : src === 'native' ? 'badge-native'
-        : src === 'declarative' ? 'badge-declarative'
-          : 'badge-inferred';
-    const badgeText = isAI ? 'AI' : src.charAt(0).toUpperCase() + src.slice(1);
-    tdSource.innerHTML = `<span class="badge ${badgeClass}">${badgeText}</span>`;
-    row.appendChild(tdSource);
+  // Render each category group
+  for (const [category, items] of grouped) {
+    // Category header row
+    const headerRow = document.createElement('tr');
+    headerRow.className = 'category-group-header';
+    const headerCell = document.createElement('td');
+    headerCell.colSpan = 4;
+    headerCell.innerHTML = `<span class="category-group-name">${category}</span> <span class="category-group-count">${items.length}</span>`;
+    headerRow.appendChild(headerCell);
+    tbody.appendChild(headerRow);
 
-    // Name
-    const tdName = document.createElement('td');
-    tdName.textContent = item.name;
-    tdName.style.fontWeight = '600';
-    tdName.style.fontSize = '11px';
-    row.appendChild(tdName);
+    // Dropdown optgroup for this category
+    const optgroup = document.createElement('optgroup');
+    optgroup.label = category;
 
-    // Category
-    const tdCat = document.createElement('td');
-    tdCat.innerHTML = `<span class="category-label">${item.category || '—'}</span>`;
-    row.appendChild(tdCat);
+    for (const item of items) {
+      const row = document.createElement('tr');
+      row.className = 'category-group-item';
 
-    // Description
-    const tdDesc = document.createElement('td');
-    tdDesc.textContent = item.description || '';
-    tdDesc.style.fontSize = '11px';
-    tdDesc.style.maxWidth = '180px';
-    row.appendChild(tdDesc);
+      // Source badge
+      const tdSource = document.createElement('td');
+      const src = item._source || 'unknown';
+      const isAI = item._aiRefined;
+      const badgeClass = isAI ? 'badge-ai'
+        : src === 'native' ? 'badge-native'
+          : src === 'declarative' ? 'badge-declarative'
+            : 'badge-inferred';
+      const badgeText = isAI ? 'AI' : src.charAt(0).toUpperCase() + src.slice(1);
+      tdSource.innerHTML = `<span class="badge ${badgeClass}">${badgeText}</span>`;
+      row.appendChild(tdSource);
 
-    // Confidence bar
-    const tdConf = document.createElement('td');
-    const conf = item.confidence ?? 1;
-    const pct = Math.round(conf * 100);
-    const colorClass = conf < 0.5 ? 'confidence-low' : conf < 0.7 ? 'confidence-med' : 'confidence-high';
-    tdConf.innerHTML = `
-      <span class="confidence-bar">
-        <span class="confidence-bar-track">
-          <span class="confidence-bar-fill ${colorClass}" style="width:${pct}%"></span>
-        </span>
-        ${pct}%
-      </span>`;
-    row.appendChild(tdConf);
+      // Name
+      const tdName = document.createElement('td');
+      tdName.textContent = item.name;
+      tdName.style.fontWeight = '600';
+      tdName.style.fontSize = '11px';
+      row.appendChild(tdName);
 
-    tbody.appendChild(row);
+      // Description
+      const tdDesc = document.createElement('td');
+      tdDesc.textContent = item.description || '';
+      tdDesc.style.fontSize = '11px';
+      tdDesc.style.maxWidth = '220px';
+      row.appendChild(tdDesc);
 
-    // Tool select dropdown with source prefix
-    const option = document.createElement('option');
-    const prefix = isAI ? '🟣' : src === 'native' ? '🟢' : src === 'declarative' ? '🔵' : '🟡';
-    option.textContent = `${prefix} ${item.name}`;
-    option.value = item.name;
-    option.dataset.inputSchema = item.inputSchema;
-    toolNames.appendChild(option);
-  });
+      // Confidence bar
+      const tdConf = document.createElement('td');
+      const conf = item.confidence ?? 1;
+      const pct = Math.round(conf * 100);
+      const colorClass = conf < 0.5 ? 'confidence-low' : conf < 0.7 ? 'confidence-med' : 'confidence-high';
+      tdConf.innerHTML = `
+        <span class="confidence-bar">
+          <span class="confidence-bar-track">
+            <span class="confidence-bar-fill ${colorClass}" style="width:${pct}%"></span>
+          </span>
+          ${pct}%
+        </span>`;
+      row.appendChild(tdConf);
+
+      tbody.appendChild(row);
+
+      // Dropdown option inside optgroup
+      const option = document.createElement('option');
+      const prefix = isAI ? '🟣' : src === 'native' ? '🟢' : src === 'declarative' ? '🔵' : '🟡';
+      option.textContent = `${prefix} ${item.name}`;
+      option.value = item.name;
+      option.dataset.inputSchema = item.inputSchema;
+      optgroup.appendChild(option);
+    }
+
+    toolNames.appendChild(optgroup);
+  }
   updateDefaultValueForInputArgs();
   if (haveNewTools) suggestUserPrompt();
 });
