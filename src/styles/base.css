@@ -349,3 +349,34 @@ button:hover {
 @media (max-width: 360px) {
   .card { padding: 12px; }
 }
+
+/* ── SVG Icons ── */
+.tool-icon svg,
+.plan-icon svg,
+.tab-icon svg,
+.bubble-action-btn svg,
+.reasoning-summary svg,
+.lock-label svg,
+.plan-toggle-btn svg,
+.plan-step-icon svg,
+.plan-status-badge svg {
+  width: 14px;
+  height: 14px;
+  vertical-align: -2px;
+  display: inline;
+}
+
+.bubble-action-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+.tab-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.plan-icon svg {
+  width: 16px;
+  height: 16px;
+}

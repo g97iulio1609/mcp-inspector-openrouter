@@ -2,6 +2,8 @@
  * Plan Renderer — renders AI execution plans as interactive DOM elements in the chat.
  */
 
+import { ICONS } from './icons';
+
 // Types are defined inline since they may not be available yet from the types module
 interface PlanStep {
   id: string;
@@ -20,11 +22,11 @@ interface Plan {
 }
 
 const STATUS_ICONS: Record<string, string> = {
-  pending: '⬜',
-  in_progress: '🔄',
-  done: '✅',
-  failed: '❌',
-  skipped: '⏭️',
+  pending: ICONS.square,
+  in_progress: ICONS.refresh,
+  done: ICONS.checkCircle,
+  failed: ICONS.xCircle,
+  skipped: ICONS.skipForward,
 };
 
 /** Create the full plan DOM element */
@@ -37,17 +39,17 @@ export function renderPlan(plan: Plan): HTMLElement {
   const header = document.createElement('div');
   header.className = 'plan-header';
   header.innerHTML = `
-    <span class="plan-icon">📋</span>
+    <span class="plan-icon">${ICONS.clipboard}</span>
     <span class="plan-goal">${escapeHtml(plan.goal)}</span>
-    <span class="plan-status-badge plan-status--${plan.status}">${STATUS_ICONS[plan.status] ?? '⬜'}</span>
-    <button class="plan-toggle-btn" title="Espandi/Comprimi">▼</button>
+    <span class="plan-status-badge plan-status--${plan.status}">${STATUS_ICONS[plan.status] ?? ICONS.square}</span>
+    <button class="plan-toggle-btn" title="Espandi/Comprimi">${ICONS.chevronDown}</button>
   `;
 
   // Toggle collapse
   const toggleBtn = header.querySelector('.plan-toggle-btn')!;
   toggleBtn.addEventListener('click', () => {
     container.classList.toggle('plan-block--collapsed');
-    toggleBtn.textContent = container.classList.contains('plan-block--collapsed') ? '▶' : '▼';
+    toggleBtn.innerHTML = container.classList.contains('plan-block--collapsed') ? ICONS.chevronRight : ICONS.chevronDown;
   });
 
   container.appendChild(header);
@@ -75,7 +77,7 @@ function renderStep(step: PlanStep, depth: number): HTMLElement {
 
   const icon = document.createElement('span');
   icon.className = 'plan-step-icon';
-  icon.textContent = STATUS_ICONS[step.status] ?? '⬜';
+  icon.innerHTML = STATUS_ICONS[step.status] ?? ICONS.square;
 
   const title = document.createElement('span');
   title.className = 'plan-step-title';
@@ -125,7 +127,7 @@ export function updatePlanStep(
 
   // Update icon
   const icon = stepEl.querySelector('.plan-step-icon');
-  if (icon) icon.textContent = STATUS_ICONS[status] ?? '⬜';
+  if (icon) icon.innerHTML = STATUS_ICONS[status] ?? ICONS.square;
 
   // Update detail
   if (detail) {
@@ -158,7 +160,7 @@ export function updatePlanStep(
     else if (statuses.some(s => s === 'done')) overallStatus = 'in_progress';
 
     badge.className = `plan-status-badge plan-status--${overallStatus}`;
-    badge.textContent = STATUS_ICONS[overallStatus] ?? '⬜';
+    badge.innerHTML = STATUS_ICONS[overallStatus] ?? ICONS.square;
   }
 }
 

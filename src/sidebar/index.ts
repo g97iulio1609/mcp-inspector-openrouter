@@ -2,6 +2,7 @@
 
 import type { CleanTool } from '../types';
 import { STORAGE_KEY_LOCK_MODE } from '../utils/constants';
+import { ICONS } from './icons';
 import * as Store from './chat-store';
 import { PlanManager } from './plan-manager';
 import { ConversationController } from './conversation-controller';
@@ -40,6 +41,14 @@ $<HTMLAnchorElement>('openOptionsLink').onclick = (e: Event): void => {
   chrome.runtime.openOptionsPage();
 };
 
+// Set SVG icons for tab buttons and plan toggle
+const iconTools = document.getElementById('icon-tools');
+const iconChat = document.getElementById('icon-chat');
+const iconPlan = document.getElementById('icon-plan');
+if (iconTools) iconTools.innerHTML = ICONS.wrench;
+if (iconChat) iconChat.innerHTML = ICONS.chat;
+if (iconPlan) iconPlan.innerHTML = ICONS.clipboard;
+
 // State
 let currentTools: CleanTool[] = [];
 const planManager = new PlanManager(planToggle, chatContainer);
@@ -67,7 +76,7 @@ const savedLock = localStorage.getItem(STORAGE_KEY_LOCK_MODE) === 'true';
 lockToggle.checked = savedLock;
 updateLockUI(savedLock);
 function updateLockUI(locked: boolean): void {
-  lockLabel.textContent = locked ? '🔒 Locked' : '🔓 Live';
+  lockLabel.innerHTML = locked ? `${ICONS.lock} Locked` : `${ICONS.unlock} Live`;
   lockLabel.className = locked ? 'lock-label locked' : 'lock-label live';
 }
 lockToggle.onchange = async (): Promise<void> => {

@@ -5,6 +5,7 @@
 
 import type { Message, ConversationSummary, MessageRole } from '../types';
 import { formatAIText } from '../utils/formatting';
+import { ICONS } from './icons';
 
 // ── Helpers ──
 
@@ -43,7 +44,7 @@ export function appendBubble(
 
         const summary = document.createElement('summary');
         summary.className = 'reasoning-summary';
-        summary.innerHTML = '💭 <span>Reasoning</span>';
+        summary.innerHTML = `${ICONS.brain} <span>Reasoning</span>`;
         details.appendChild(summary);
 
         const reasoningBody = document.createElement('div');
@@ -61,22 +62,22 @@ export function appendBubble(
       } else if (meta.reasoning) {
         const notice = document.createElement('div');
         notice.className = 'reasoning-notice';
-        notice.textContent = '⚠️ The model used all output tokens for reasoning. Check the reasoning above for details.';
+        notice.innerHTML = `${ICONS.alertTriangle} The model used all output tokens for reasoning. Check the reasoning above for details.`;
         body.appendChild(notice);
       }
       break;
     }
     case 'tool_call':
-      body.innerHTML = `<span class="tool-icon">⚡</span> <strong>${meta.tool ?? ''}</strong> <code>${JSON.stringify(meta.args ?? {})}</code>`;
+      body.innerHTML = `<span class="tool-icon">${ICONS.zap}</span> <strong>${meta.tool ?? ''}</strong> <code>${JSON.stringify(meta.args ?? {})}</code>`;
       break;
     case 'tool_result':
-      body.innerHTML = `<span class="tool-icon">✅</span> <strong>${meta.tool ?? ''}</strong> → <code>${content}</code>`;
+      body.innerHTML = `<span class="tool-icon">${ICONS.checkCircle}</span> <strong>${meta.tool ?? ''}</strong> → <code>${content}</code>`;
       break;
     case 'tool_error':
-      body.innerHTML = `<span class="tool-icon">❌</span> <strong>${meta.tool ?? ''}</strong> → <code>${content}</code>`;
+      body.innerHTML = `<span class="tool-icon">${ICONS.xCircle}</span> <strong>${meta.tool ?? ''}</strong> → <code>${content}</code>`;
       break;
     case 'error':
-      body.innerHTML = `<span class="tool-icon">⚠️</span> ${content}`;
+      body.innerHTML = `<span class="tool-icon">${ICONS.alertTriangle}</span> ${content}`;
       break;
   }
 
@@ -146,7 +147,7 @@ function appendBubbleWithActions(
     const editBtn = document.createElement('button');
     editBtn.className = 'bubble-action-btn';
     editBtn.title = 'Edit message';
-    editBtn.textContent = '✏️';
+    editBtn.innerHTML = ICONS.edit;
     editBtn.onclick = (e) => {
       e.stopPropagation();
       const currentText = content;
@@ -162,7 +163,7 @@ function appendBubbleWithActions(
       btnRow.className = 'bubble-edit-btns';
 
       const saveBtn = document.createElement('button');
-      saveBtn.textContent = '✅ Save';
+      saveBtn.innerHTML = ICONS.check + ' Save';
       saveBtn.className = 'bubble-edit-save';
       saveBtn.onclick = () => {
         const newContent = textarea.value.trim();
@@ -175,7 +176,7 @@ function appendBubbleWithActions(
       };
 
       const cancelBtn = document.createElement('button');
-      cancelBtn.textContent = '❌ Cancel';
+      cancelBtn.innerHTML = ICONS.x + ' Cancel';
       cancelBtn.className = 'bubble-edit-cancel';
       cancelBtn.onclick = () => {
         bodyEl.textContent = currentText;
@@ -197,7 +198,7 @@ function appendBubbleWithActions(
   const deleteBtn = document.createElement('button');
   deleteBtn.className = 'bubble-action-btn';
   deleteBtn.title = 'Delete this and all subsequent messages';
-  deleteBtn.textContent = '🗑️';
+  deleteBtn.innerHTML = ICONS.trash;
   deleteBtn.onclick = (e) => {
     e.stopPropagation();
     actions.onDelete(index);

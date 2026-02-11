@@ -16,8 +16,8 @@
 <body>
   <!-- Tab bar -->
   <nav class="tab-bar">
-    <button class="tab-btn active" data-tab="tools">🔧 Tools</button>
-    <button class="tab-btn" data-tab="chat">💬 Chat</button>
+    <button class="tab-btn active" data-tab="tools"><span class="tab-icon" id="icon-tools"></span> Tools</button>
+    <button class="tab-btn" data-tab="chat"><span class="tab-icon" id="icon-chat"></span> Chat</button>
   </nav>
 
   <!-- ═══ Tools tab ═══ -->
@@ -78,7 +78,7 @@
       <select id="conversationSelect"></select>
       <button id="newChatBtn" class="icon-btn" title="New chat">＋</button>
       <button id="deleteChatBtn" class="icon-btn danger" title="Delete conversation">🗑</button>
-      <button id="plan-toggle" class="plan-mode-toggle icon-btn" title="Toggle plan mode">📋 Plan</button>
+      <button id="plan-toggle" class="plan-mode-toggle icon-btn" title="Toggle plan mode"><span id="icon-plan"></span> Plan</button>
     </div>
 
     <!-- Chat bubbles -->
