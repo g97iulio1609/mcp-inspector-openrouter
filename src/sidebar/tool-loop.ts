@@ -14,6 +14,7 @@ import type {
 import type { OpenRouterChat } from '../services/adapters';
 import type { ChatConfig } from '../services/adapters/openrouter';
 import type { PlanManager } from './plan-manager';
+import { logger } from './debug-logger';
 
 // ── Helpers ──
 
@@ -163,11 +164,9 @@ export async function executeToolLoop(params: ToolLoopParams): Promise<ToolLoopR
     const functionCalls: readonly ParsedFunctionCall[] =
       response.functionCalls ?? [];
 
-    console.debug(
-      `[Sidebar] Iteration ${iteration}: ${functionCalls.length} tool calls, text=${!!response.text}, planMode=${planManager.planModeEnabled}`,
-    );
+    logger.info('ToolLoop', `Iteration ${iteration}: ${functionCalls.length} tool calls, text=${!!response.text}, tabId=${tabId}`);
     if (functionCalls.length > 0) {
-      console.debug('[Sidebar] Tool calls:', functionCalls.map((fc) => fc.name).join(', '));
+      logger.info('ToolLoop', 'Tool calls:', functionCalls.map((fc) => ({ name: fc.name, args: fc.args })));
     }
 
     if (functionCalls.length === 0) {
@@ -197,6 +196,7 @@ export async function executeToolLoop(params: ToolLoopParams): Promise<ToolLoopR
 
         // Browser tools are executed via background, not content script
         if (isBrowserTool(name)) {
+          logger.info('ToolLoop', `Executing BROWSER tool "${name}"`, args);
           const result = await chrome.runtime.sendMessage({
             action: 'EXECUTE_BROWSER_TOOL',
             name,
@@ -218,6 +218,7 @@ export async function executeToolLoop(params: ToolLoopParams): Promise<ToolLoopR
         let navigatedDuringBatch = false;
 
         try {
+          logger.info('ToolLoop', `Executing tool "${name}" on tab ${tabId}`, args);
           const rawResult = await chrome.tabs.sendMessage(tabId, {
             action: 'EXECUTE_TOOL',
             name,

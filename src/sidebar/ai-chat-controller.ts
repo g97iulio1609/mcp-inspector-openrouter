@@ -21,6 +21,7 @@ import type { PlanManager } from './plan-manager';
 import { executeToolLoop } from './tool-loop';
 import type { ConversationController } from './conversation-controller';
 import { createMentionAutocomplete, type MentionAutocomplete, type TabMention } from './tab-mention';
+import { logger } from './debug-logger';
 
 export interface AIChatDeps {
   userPromptText: HTMLTextAreaElement;
@@ -184,6 +185,7 @@ export class AIChatController {
       const parsed = this.mentionAC.parseMentions(message);
       message = parsed.cleanText;
       this.activeMentions = parsed.mentions;
+      logger.info('Mention', `Parsed ${parsed.mentions.length} mentions from prompt`, parsed.mentions.map(m => ({ title: m.title, tabId: m.tabId })));
     } else {
       this.activeMentions = [];
     }
@@ -197,31 +199,46 @@ export class AIChatController {
       pageContext = (await chrome.tabs.sendMessage(tab.id, {
         action: 'GET_PAGE_CONTEXT',
       })) as PageContext;
+      logger.debug('Context', `Current tab context: title="${pageContext?.title}"`, { url: tab.url });
     } catch (e) {
-      console.warn('[Sidebar] Could not fetch page context:', e);
+      logger.warn('Context', `Could not fetch page context from tab ${tab.id}`, e);
     }
 
     const currentTools = getCurrentTools();
+    logger.info('Tools', `Current tab has ${currentTools.length} tools`, currentTools.map(t => t.name));
 
     // Fetch context and tools from mentioned tabs
     const mentionContexts: { tabId: number; title: string; context: PageContext }[] = [];
     let mentionedTools: CleanTool[] = [];
     for (const mention of this.activeMentions) {
+      logger.info('Mention', `Processing mention: "${mention.title}" (tab ${mention.tabId})`);
       try {
         // Ensure content script is injected
-        try { await chrome.tabs.sendMessage(mention.tabId, { action: 'PING' }); }
-        catch { await chrome.scripting.executeScript({ target: { tabId: mention.tabId }, files: ['content.js'] }); }
+        try {
+          await chrome.tabs.sendMessage(mention.tabId, { action: 'PING' });
+          logger.debug('Mention', `PING succeeded on tab ${mention.tabId}`);
+        } catch (pingErr) {
+          logger.warn('Mention', `PING failed on tab ${mention.tabId}, injecting content script`, pingErr);
+          await chrome.scripting.executeScript({ target: { tabId: mention.tabId }, files: ['content.js'] });
+          // Wait for content script to initialize
+          await new Promise(r => setTimeout(r, 500));
+          logger.info('Mention', `Content script injected on tab ${mention.tabId}`);
+        }
 
         const ctx = await chrome.tabs.sendMessage(mention.tabId, { action: 'GET_PAGE_CONTEXT' }) as PageContext;
+        logger.debug('Mention', `Context from "${mention.title}": title="${ctx?.title}"`, { pageText: ctx?.pageText?.slice(0, 200) });
         if (ctx) mentionContexts.push({ tabId: mention.tabId, title: mention.title, context: ctx });
 
         // Fetch tools from mentioned tab
-        const toolsResult = await chrome.tabs.sendMessage(mention.tabId, { action: 'GET_TOOLS_SYNC' }) as { tools?: CleanTool[] };
+        logger.info('Mention', `Fetching tools from "${mention.title}" (tab ${mention.tabId})...`);
+        const toolsResult = await chrome.tabs.sendMessage(mention.tabId, { action: 'GET_TOOLS_SYNC' }) as { tools?: CleanTool[]; url?: string };
+        logger.info('Mention', `Tab "${mention.title}" returned ${toolsResult?.tools?.length ?? 0} tools from ${toolsResult?.url}`,
+          toolsResult?.tools?.map(t => ({ name: t.name, category: t.category, source: t._source })));
         if (toolsResult?.tools?.length) {
           mentionedTools = [...mentionedTools, ...toolsResult.tools];
         }
       } catch (e) {
-        console.warn(`[Sidebar] Could not fetch context from mentioned tab ${mention.title}:`, e);
+        logger.error('Mention', `Failed to fetch from mentioned tab "${mention.title}" (${mention.tabId})`, e);
       }
     }
 
@@ -229,6 +246,11 @@ export class AIChatController {
     const allTools = mentionedTools.length > 0
       ? [...currentTools, ...mentionedTools.filter(mt => !currentTools.some(ct => ct.name === mt.name))]
       : currentTools;
+
+    logger.info('Tools', `Merged: ${currentTools.length} current + ${mentionedTools.length} mentioned = ${allTools.length} total`);
+    if (mentionedTools.length > 0) {
+      logger.info('Tools', 'Mentioned tools:', mentionedTools.map(t => t.name));
+    }
 
     const config = buildChatConfig(pageContext, allTools, planManager.planModeEnabled, mentionContexts);
     convCtrl.state.trace.push({ userPrompt: { message, config } });

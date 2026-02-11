@@ -110,6 +110,12 @@ $<HTMLButtonElement>('traceBtn').onclick = async (): Promise<void> => {
   await navigator.clipboard.writeText(JSON.stringify(convCtrl.state.trace, null, ' '));
 };
 
+// Debug log download
+import { logger } from './debug-logger';
+$<HTMLButtonElement>('debugLogBtn').onclick = (): void => {
+  logger.download();
+};
+
 // Module DOM refs
 const toolListRefs: ToolListDomRefs = { statusDiv, tbody, thead, toolNames, inputArgsText, executeBtn, copyToClipboard };
 const securityDialogRefs: SecurityDialogRefs = {
