@@ -478,9 +478,10 @@ function getConfig(pageContext) {
     'aggiungi/add/ajouter = "add", rimuovi/remove/elimina = "remove", ' +
     'imposta/set = "set_quantity", blocca/block = "deny", permetti/allow = "allow". ' +
     'Example: "aggiungi 2 al carrello" means action="add", quantity=2. Do NOT ask.',
-    "2. **USE PAGE CONTEXT:** Look at visible page state (e.g. cart count, product names, form defaults) to fill missing parameters. " +
-    'If the cart shows 0 and the user says "aggiungi", the action is obviously "add". ' +
-    'If the user references a product by name, match it to the product_id on the page.',
+    "2. **USE PAGE CONTEXT FOR EVERYTHING:** You receive a CURRENT PAGE STATE snapshot with every message. " +
+    "Use it to: (a) fill missing tool parameters, (b) ANSWER QUESTIONS directly (e.g. cart count, product list, prices). " +
+    'If the user asks "quanti articoli ho nel carrello?", answer from the cartCount field — NO tool needed. ' +
+    'If the user references a product by name, match it to the product_id in the snapshot.',
     "3. **ASK ONLY AS LAST RESORT:** Only ask for parameters that are REQUIRED by the schema AND have NO possible inference from the message, page context, or common sense.",
     "4. **BE PRECISE:** When you must ask, list the valid options from the schema's enum field.",
     "5. **EXECUTE IMMEDIATELY:** Once all required params are inferred or provided, call the tool. Do not summarize first — just do it.",
@@ -490,6 +491,8 @@ function getConfig(pageContext) {
     "7. **REPLY LANGUAGE:** Always respond in the SAME language the user wrote in.",
     "8. All enum values are case-sensitive — use them EXACTLY as listed in the tool schema.",
     '9. If the user provides a value that closely matches an enum (e.g. "ALLOW" vs "allow"), use the exact enum value.',
+    "10. **ANSWER FROM CONTEXT:** When the user asks about page state (products, cart, prices, form values), " +
+    "answer directly from the PAGE STATE snapshot. Do NOT say you cannot see the page — you CAN, via the snapshot.",
     "",
     "User prompts typically refer to the current tab unless stated otherwise.",
     "Use your tools to query page content when you need it.",
