@@ -3,6 +3,8 @@
  * Extracted from: content.js, wmcp-inference-engine.js, wmcp-merge.js, wmcp-tool-executor.js
  */
 
+import type { LiveStateSnapshot } from './live-state.types';
+
 // ── Tool Source ──
 
 /** Origin tier of a discovered tool */
@@ -155,6 +157,7 @@ export interface PageContext {
   readonly headings?: readonly string[];
   readonly links?: readonly PageLink[];
   readonly metaDescription?: string;
+  readonly liveState?: LiveStateSnapshot;
 }
 
 /** Page context used by the AI classifier (lighter weight) */
