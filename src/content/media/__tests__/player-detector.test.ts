@@ -86,4 +86,39 @@ describe('PlayerDetector', () => {
       player.dispose();
     }
   });
+
+  it('detects custom JS players before native fallback', () => {
+    const root = document.createElement('div');
+
+    const mkCustomHost = (className: string, mediaTag: 'video' | 'audio'): Element => {
+      const host = document.createElement('div');
+      host.className = className;
+      const media = document.createElement(mediaTag);
+      host.appendChild(media);
+      return host;
+    };
+
+    root.appendChild(mkCustomHost('video-js', 'video'));
+    root.appendChild(mkCustomHost('plyr', 'video'));
+    root.appendChild(mkCustomHost('jwplayer', 'video'));
+    root.appendChild(mkCustomHost('mejs__container', 'audio'));
+
+    const native = document.createElement('video');
+    root.appendChild(native);
+
+    const detector = new PlayerDetector();
+    const players = detector.detect(root);
+
+    expect(players.map((p) => p.platform)).toEqual([
+      'videojs',
+      'plyr',
+      'jwplayer',
+      'mediaelement',
+      'native',
+    ]);
+
+    for (const player of players) {
+      player.dispose();
+    }
+  });
 });

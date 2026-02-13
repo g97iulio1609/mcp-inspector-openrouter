@@ -22,3 +22,7 @@ export { YouTubePlayer } from './iframe-players/youtube-player';
 export { VimeoPlayer } from './iframe-players/vimeo-player';
 export { DailymotionPlayer } from './iframe-players/dailymotion-player';
 export { TwitchPlayer } from './iframe-players/twitch-player';
+export { VideoJsPlayer } from './custom-players/videojs-player';
+export { PlyrPlayer } from './custom-players/plyr-player';
+export { JWPlayerAdapter } from './custom-players/jwplayer-player';
+export { MediaElementPlayer } from './custom-players/mediaelement-player';
