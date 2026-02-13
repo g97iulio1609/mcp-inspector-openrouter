@@ -149,15 +149,23 @@ export class ConversationController {
     }
   }
 
-  /** Add a message and render it in the chat. */
+  /** Add a message and render it in the chat.
+   *  When `pinned` is provided, the message is stored against that
+   *  site/convId regardless of the current mutable state — this prevents
+   *  cross-tab routing bugs when the user switches tabs mid-request.
+   */
   addAndRender(
     role: MessageRole,
     content: string,
     meta: Record<string, unknown> = {},
+    pinned?: { site: string; convId: string },
   ): void {
+    const site = pinned?.site ?? this.state.currentSite;
+    const convId = pinned?.convId ?? this.state.currentConvId;
+
     const msg = { role, content, ...meta };
-    if (this.state.currentConvId) {
-      Store.addMessage(this.state.currentSite, this.state.currentConvId, msg);
+    if (convId) {
+      Store.addMessage(site, convId, msg);
     }
     ChatUI.appendBubble(this.chatContainer, role, content, {
       role,

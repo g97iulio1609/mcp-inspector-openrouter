@@ -41,6 +41,8 @@ export class AIChatController {
   private readonly deps: AIChatDeps;
   private mentionAC: MentionAutocomplete | undefined;
   private activeMentions: TabMention[] = [];
+  /** Pinned conversation coordinates for the in-flight request. */
+  private pinnedConv: { site: string; convId: string } | null = null;
 
   constructor(deps: AIChatDeps) {
     this.deps = deps;
@@ -93,7 +95,7 @@ export class AIChatController {
         await this.promptAI();
       } catch (error) {
         convCtrl.state.trace.push({ error });
-        convCtrl.addAndRender('error', `⚠️ Error: "${error}"`);
+        convCtrl.addAndRender('error', `⚠️ Error: "${error}"`, {}, this.pinnedConv ?? undefined);
       }
     };
 
@@ -160,6 +162,14 @@ export class AIChatController {
     if (!tab?.id) return;
     convCtrl.ensureConversation();
 
+    // Pin conversation coordinates immediately (before any async yield)
+    // so that tab switches during the request don't mis-route messages.
+    const pinnedConv = {
+      site: convCtrl.state.currentSite,
+      convId: convCtrl.state.currentConvId!,
+    };
+    this.pinnedConv = pinnedConv;
+
     let chat = convCtrl.state.chat as OpenRouterChat | undefined;
     if (!chat) {
       const result = await chrome.storage.local.get([STORAGE_KEY_API_KEY, STORAGE_KEY_MODEL]);
@@ -167,8 +177,8 @@ export class AIChatController {
       const model = (result[STORAGE_KEY_MODEL] as string) ?? DEFAULT_MODEL;
       chat = new OpenRouterChat(apiKey, model);
       convCtrl.state.chat = chat;
-      if (convCtrl.state.currentConvId && convCtrl.state.currentSite) {
-        const msgs = Store.getMessages(convCtrl.state.currentSite, convCtrl.state.currentConvId);
+      if (pinnedConv.convId && pinnedConv.site) {
+        const msgs = Store.getMessages(pinnedConv.site, pinnedConv.convId);
         for (const m of msgs) {
           if (m.role === 'user') {
             chat.history.push({ role: 'user', content: m.content });
@@ -192,7 +202,7 @@ export class AIChatController {
     userPromptText.value = '';
     this.lastSuggestedUserPrompt = '';
 
-    convCtrl.addAndRender('user', message);
+    convCtrl.addAndRender('user', message, {}, pinnedConv);
 
     let pageContext: PageContext | null = null;
     try {
@@ -292,12 +302,13 @@ export class AIChatController {
       currentTools: allTools,
       planManager,
       trace: convCtrl.state.trace,
-      addMessage: (role, content, meta) => convCtrl.addAndRender(role, content, meta),
+      addMessage: (role, content, meta) => convCtrl.addAndRender(role, content, meta, pinnedConv),
       getConfig: (ctx) => buildChatConfig(ctx, allTools, planManager.planModeEnabled, mentionContexts),
       onToolsUpdated: (tools) => { setCurrentTools(tools); },
     });
 
     setCurrentTools(loopResult.currentTools);
+    this.pinnedConv = null;
   }
 
   private getFormattedDate(): string {
