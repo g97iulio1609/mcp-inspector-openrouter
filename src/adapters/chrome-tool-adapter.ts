@@ -10,6 +10,7 @@ import type { IToolExecutionPort } from '../ports/tool-execution.port';
 import type { ToolCallResult, ToolDefinition, ToolTarget } from '../ports/types';
 import type { CleanTool } from '../types';
 import { logger } from '../sidebar/debug-logger';
+import { waitForTabFocus } from '../utils/adaptive-wait';
 
 /** Determine whether a tool runs in the background service worker */
 function isBrowserTool(name: string): boolean {
@@ -123,7 +124,7 @@ export class ChromeToolAdapter implements IToolExecutionPort {
       if (isCrossTab) {
         logger.info('ChromeToolAdapter', `Cross-tab: focusing tab ${tabId}`);
         await chrome.tabs.update(tabId, { active: true });
-        await new Promise((r) => setTimeout(r, 300));
+        await waitForTabFocus(tabId, { maxWaitMs: 2000, settleMs: 200 });
       }
 
       logger.info('ChromeToolAdapter', `Content tool "${toolName}" on tab ${tabId}`, args);

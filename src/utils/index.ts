@@ -47,3 +47,6 @@ export {
 } from './formatting';
 
 export { formatLiveStateForPrompt } from './live-state-formatter';
+
+export { waitForTabReady, waitForTabFocus } from './adaptive-wait';
+export type { AdaptiveWaitOptions } from './adaptive-wait';

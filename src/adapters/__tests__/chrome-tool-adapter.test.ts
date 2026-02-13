@@ -31,6 +31,11 @@ vi.mock('../../sidebar/debug-logger', () => ({
   },
 }));
 
+vi.mock('../../utils/adaptive-wait', () => ({
+  waitForTabFocus: vi.fn().mockResolvedValue(200),
+  waitForTabReady: vi.fn().mockResolvedValue(300),
+}));
+
 import { ChromeToolAdapter } from '../chrome-tool-adapter';
 import type { CleanTool } from '../../types';
 
@@ -162,19 +167,15 @@ describe('ChromeToolAdapter', () => {
     });
 
     it('cross-tab focuses tab first', async () => {
-      vi.useFakeTimers();
       mockTabsUpdate.mockResolvedValue(undefined);
       mockSendMessage
         .mockResolvedValueOnce(undefined)
         .mockResolvedValueOnce({ success: true, message: 'ok' });
 
-      const promise = adapter.execute('click_button', {}, { tabId: 10, originTabId: 1 });
-      await vi.advanceTimersByTimeAsync(300);
-      const result = await promise;
+      const result = await adapter.execute('click_button', {}, { tabId: 10, originTabId: 1 });
 
       expect(mockTabsUpdate).toHaveBeenCalledWith(10, { active: true });
       expect(result.success).toBe(true);
-      vi.useRealTimers();
     });
   });
 

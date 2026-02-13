@@ -15,6 +15,7 @@ import type { OpenRouterChat } from '../services/adapters';
 import type { ChatConfig } from '../services/adapters/openrouter';
 import type { PlanManager } from './plan-manager';
 import { logger } from './debug-logger';
+import { waitForTabReady, waitForTabFocus } from '../utils/adaptive-wait';
 
 // ── Helpers ──
 
@@ -48,33 +49,8 @@ export async function waitForPageAndRescan(
   const rescanStart = performance.now();
   logger.info('Rescan', `Starting page rescan for tab ${tabId}...`);
 
-  await new Promise<void>((resolve) => {
-    let resolved = false;
-    const done = (): void => {
-      if (!resolved) {
-        resolved = true;
-        chrome.tabs.onUpdated.removeListener(listener);
-        logger.debug('Rescan', `Page load wait completed in ${(performance.now() - rescanStart).toFixed(0)}ms`);
-        resolve();
-      }
-    };
-    const listener = (
-      updatedTabId: number,
-      changeInfo: chrome.tabs.TabChangeInfo,
-    ): void => {
-      if (updatedTabId === tabId && changeInfo.status === 'complete') {
-        logger.debug('Rescan', `Tab ${tabId} status=complete`);
-        done();
-      }
-    };
-    chrome.tabs.onUpdated.addListener(listener);
-    setTimeout((): void => {
-      logger.warn('Rescan', `Page load timeout (5s) for tab ${tabId}`);
-      done();
-    }, 5000);
-  });
-
-  logger.debug('Rescan', `Page load wait took ${(performance.now() - rescanStart).toFixed(0)}ms`);
+  const elapsed = await waitForTabReady(tabId, { maxWaitMs: 10_000, settleMs: 300 });
+  logger.debug('Rescan', `Page load wait took ${elapsed.toFixed(0)}ms`);
 
   let pageContext: PageContext | null = null;
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -245,8 +221,7 @@ export async function executeToolLoop(params: ToolLoopParams): Promise<ToolLoopR
           if (isCrossTab) {
             logger.info('ToolLoop', `Cross-tab: focusing tab ${tabId} before tool "${name}"`);
             await chrome.tabs.update(tabId, { active: true });
-            // Brief pause for tab to become visible and interactive
-            await new Promise(r => setTimeout(r, 300));
+            await waitForTabFocus(tabId, { maxWaitMs: 2000, settleMs: 200 });
           }
           logger.info('ToolLoop', `Executing tool "${name}" on tab ${tabId}`, args);
           const rawResult = await chrome.tabs.sendMessage(tabId, {
@@ -273,7 +248,7 @@ export async function executeToolLoop(params: ToolLoopParams): Promise<ToolLoopR
             onToolsUpdated(currentTools);
             navigatedDuringBatch = true;
           } else if (functionCalls.length > 1) {
-            await new Promise((r) => setTimeout(r, 300));
+            await new Promise((r) => setTimeout(r, 200));
           }
         } catch (e) {
           const errMsg = (e as Error).message;
