@@ -1,0 +1,125 @@
+/**
+ * Shared types for the hexagonal port layer.
+ *
+ * These types are owned by the domain and used across all ports/adapters.
+ * They intentionally duplicate minimal fields from existing types to keep
+ * the port layer decoupled from infrastructure concerns.
+ */
+
+import type {
+  CleanTool,
+  PageContext,
+  Message,
+  Plan,
+  PlanStep,
+} from '../types';
+import type { LiveStateSnapshot } from '../types/live-state.types';
+
+// ── Agent Types ──
+
+/** Context provided to the agent for a single run */
+export interface AgentContext {
+  readonly pageContext: PageContext | null;
+  readonly tools: readonly CleanTool[];
+  readonly conversationHistory: readonly Message[];
+  readonly liveState: LiveStateSnapshot | null;
+  readonly tabId: number;
+  readonly mentionContexts?: readonly MentionContext[];
+}
+
+/** Cross-tab mention context */
+export interface MentionContext {
+  readonly tabId: number;
+  readonly title: string;
+  readonly context: PageContext;
+}
+
+/** Result from a single agent run */
+export interface AgentResult {
+  readonly text: string;
+  readonly reasoning?: string;
+  readonly toolCalls: readonly ToolCallRecord[];
+  readonly updatedTools: readonly CleanTool[];
+  readonly updatedPageContext: PageContext | null;
+  readonly stepsCompleted: number;
+}
+
+/** Record of a tool call and its result */
+export interface ToolCallRecord {
+  readonly name: string;
+  readonly args: Record<string, unknown>;
+  readonly callId: string;
+  readonly result: ToolCallResult;
+}
+
+/** Outcome of a single tool execution */
+export interface ToolCallResult {
+  readonly success: boolean;
+  readonly data?: unknown;
+  readonly error?: string;
+}
+
+// ── Tool Execution Types ──
+
+/** Target for tool execution routing */
+export interface ToolTarget {
+  readonly tabId: number;
+  readonly originTabId?: number;
+}
+
+/** Standardised tool definition for the port layer */
+export interface ToolDefinition {
+  readonly name: string;
+  readonly description: string;
+  readonly parametersSchema: Record<string, unknown>;
+  readonly category?: string;
+}
+
+// ── Subagent Types ──
+
+/** Task definition for spawning a subagent */
+export interface SubagentTask {
+  readonly prompt: string;
+  readonly instructions?: string;
+  readonly tools?: readonly CleanTool[];
+  readonly context?: AgentContext;
+  readonly maxSteps?: number;
+  readonly timeoutMs?: number;
+}
+
+/** Result from a subagent execution */
+export interface SubagentResult {
+  readonly subagentId: string;
+  readonly text: string;
+  readonly success: boolean;
+  readonly stepsCompleted: number;
+  readonly error?: string;
+}
+
+/** Info about a currently running subagent */
+export interface SubagentInfo {
+  readonly id: string;
+  readonly task: string;
+  readonly startedAt: number;
+  readonly status: 'running' | 'completed' | 'failed' | 'cancelled';
+}
+
+// ── Context Types ──
+
+/** Summary of conversation context after compression */
+export interface ContextSummary {
+  readonly originalCount: number;
+  readonly compressedCount: number;
+  readonly summary: string;
+}
+
+// ── Re-exports for convenience ──
+
+export type {
+  CleanTool,
+  PageContext,
+  Message,
+  Plan,
+  PlanStep,
+  LiveStateSnapshot,
+};
