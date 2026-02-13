@@ -1,8 +1,12 @@
 /**
  * Media executor: unified media command execution through player adapters.
+ *
+ * Performs live-state pre-checks before executing actions to avoid
+ * redundant operations (e.g. playing an already-playing video).
  */
 
 import type { Tool } from '../../types';
+import type { MediaLiveState } from '../../types/live-state.types';
 import {
   NativePlayerAdapter,
   getPlayerRegistry,
@@ -11,6 +15,7 @@ import {
   type MediaToolAction,
   type ParsedMediaToolName,
 } from '../media';
+import { getLiveStateManager } from '../live-state';
 import { BaseExecutor, type ExecutionResult } from './base-executor';
 
 export class MediaExecutor extends BaseExecutor {
@@ -29,12 +34,68 @@ export class MediaExecutor extends BaseExecutor {
       return this.fail(`Media player not found: ${actionTarget.playerId}`);
     }
 
+    const liveState = this.getMediaLiveState(actionTarget.playerId);
+    const preCheck = this.preCheckAction(actionTarget.action, liveState, parsedArgs);
+    if (preCheck) return preCheck;
+
     try {
       return await this.executeAction(player, actionTarget.action, parsedArgs, tool.description);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return this.fail(`Media execution failed: ${message}`);
     }
+  }
+
+  /** Retrieve cached live state for a specific player */
+  private getMediaLiveState(playerId: string): MediaLiveState | undefined {
+    const snapshot = getLiveStateManager().getLatestSnapshot();
+    return snapshot?.media.find((m) => m.playerId === playerId);
+  }
+
+  /**
+   * Pre-check: return an early result if the action is redundant.
+   * Returns `null` when the action should proceed normally.
+   */
+  private preCheckAction(
+    action: MediaToolAction,
+    state: MediaLiveState | undefined,
+    args: Record<string, unknown>,
+  ): ExecutionResult | null {
+    if (!state) return null;
+
+    const time = this.fmtTimeSec(state.currentTime);
+
+    switch (action) {
+      case 'play':
+        if (!state.paused) {
+          return this.ok(`Already playing at ${time} — no action needed`);
+        }
+        break;
+      case 'pause':
+        if (state.paused) {
+          return this.ok(`Already paused at ${time} — no action needed`);
+        }
+        break;
+      case 'mute':
+        if (state.muted) {
+          return this.ok('Already muted — no action needed');
+        }
+        break;
+      case 'unmute':
+        if (!state.muted) {
+          return this.ok('Already unmuted — no action needed');
+        }
+        break;
+      case 'set-volume': {
+        const level = typeof args.level === 'number' ? args.level : Number(args.level);
+        if (Number.isFinite(level) && Math.abs(state.volume - level) < 0.01) {
+          return this.ok(`Volume already at ${Math.round(level * 100)}% — no action needed`);
+        }
+        break;
+      }
+    }
+
+    return null;
   }
 
   private parseTool(toolName: string): ParsedMediaToolName | null {
@@ -215,5 +276,11 @@ export class MediaExecutor extends BaseExecutor {
 
   private wait(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private fmtTimeSec(seconds: number): string {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
   }
 }

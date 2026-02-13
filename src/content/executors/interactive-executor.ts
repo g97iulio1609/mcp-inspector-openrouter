@@ -1,8 +1,12 @@
 /**
  * Interactive executor: button clicks, toggles, tab switches, combobox selection.
+ *
+ * Uses live state to provide informative response messages about
+ * the resulting state of interactive elements.
  */
 
 import type { Tool } from '../../types';
+import { getLiveStateManager } from '../live-state';
 import { BaseExecutor, type ExecutionResult } from './base-executor';
 
 export class InteractiveExecutor extends BaseExecutor {
@@ -55,8 +59,20 @@ export class InteractiveExecutor extends BaseExecutor {
       }
     }
 
-    // Default: click
+    // Default: click with state-aware feedback
     el.click();
-    return this.ok(`Clicked: ${tool.name}`);
+    return this.ok(this.buildClickMessage(tool.name));
+  }
+
+  /** Enrich click responses with current interactive state context */
+  private buildClickMessage(toolName: string): string {
+    const snapshot = getLiveStateManager().getLatestSnapshot();
+    if (!snapshot) return `Clicked: ${toolName}`;
+
+    const { openModals, expandedAccordions } = snapshot.interactive;
+    const parts: string[] = [`Clicked: ${toolName}`];
+    if (openModals.length) parts.push(`(${openModals.length} modal(s) open)`);
+    if (expandedAccordions.length) parts.push(`(${expandedAccordions.length} accordion(s) expanded)`);
+    return parts.join(' ');
   }
 }
