@@ -15,6 +15,22 @@ function isReady(el: Element | null | undefined): el is HTMLElement {
   );
 }
 
+function isTextInput(
+  el: Element | null | undefined,
+): el is HTMLTextAreaElement | HTMLInputElement {
+  return !!el && (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement);
+}
+
+function isEditableNode(el: Element | null | undefined): boolean {
+  if (!el) return false;
+  const htmlEl = el as HTMLElement;
+  return (
+    htmlEl.isContentEditable ||
+    el.getAttribute('role') === 'textbox' ||
+    isTextInput(el)
+  );
+}
+
 /** HTML-escape a string */
 function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -26,13 +42,19 @@ function findEditor(): HTMLElement | null {
     '.ql-editor[contenteditable="true"], ' +
       '.ProseMirror[contenteditable="true"], ' +
       '[contenteditable="true"][role="textbox"], ' +
+      'textarea[aria-label*="comment" i], ' +
+      'textarea[placeholder*="comment" i], ' +
+      'textarea[placeholder*="reply" i], ' +
+      'textarea[placeholder*="message" i], ' +
+      'ytd-comment-simplebox-renderer #contenteditable-root, ' +
+      'div[contenteditable="true"][data-tab], ' +
       '[contenteditable="true"]',
   );
 }
 
 /** Pattern matching content-creation trigger buttons (multilingual) */
 const TRIGGER_RE =
-  /\b(post|compose|write|create|tweet|reply|comment|scrivi|pubblica|crea|nouveau|erstellen|escribir|rédiger)\b/i;
+  /\b(post|compose|write|create|tweet|reply|comment|message|chat|scrivi|pubblica|crea|nouveau|erstellen|escribir|rédiger)\b/i;
 
 export class RichTextExecutor extends BaseExecutor {
   readonly category = 'richtext' as const;
@@ -47,8 +69,25 @@ export class RichTextExecutor extends BaseExecutor {
 
     try {
       const editable = await this.resolveEditor(tool);
-      if (!isReady(editable)) {
+      if (!isReady(editable) || !isEditableNode(editable)) {
         return this.fail('Editor not found — could not activate the composer');
+      }
+
+      if (isTextInput(editable)) {
+        editable.focus();
+        editable.value = text;
+        editable.dispatchEvent(
+          new InputEvent('input', {
+            bubbles: true,
+            cancelable: true,
+            inputType: 'insertText',
+            data: text,
+          }),
+        );
+        editable.dispatchEvent(new Event('change', { bubbles: true }));
+        return this.ok(
+          `Wrote ${text.length} chars to "${tool.title ?? tool.name}"`,
+        );
       }
 
       const isQuill =
@@ -92,18 +131,25 @@ export class RichTextExecutor extends BaseExecutor {
     let editable = this.findElement(tool) as HTMLElement | null;
 
     // If _el is a container, drill down to the actual editable child
-    if (editable && !editable.getAttribute?.('contenteditable')) {
-      editable =
+    if (editable && !isEditableNode(editable)) {
+      const nestedEditable =
         editable.querySelector<HTMLElement>('.ql-editor') ??
         editable.querySelector<HTMLElement>('[contenteditable="true"]') ??
-        editable;
+        editable.querySelector<HTMLElement>('textarea, input[type="text"], [role="textbox"]');
+
+      if (nestedEditable) {
+        editable = nestedEditable;
+      } else {
+        editable.click();
+        await this.delay(200);
+      }
     }
 
-    if (isReady(editable)) return editable;
+    if (isReady(editable) && isEditableNode(editable)) return editable;
 
     // Maybe there's already an editor elsewhere on the page
     editable = findEditor();
-    if (isReady(editable)) return editable;
+    if (isReady(editable) && isEditableNode(editable)) return editable;
 
     // No editor in DOM — scan for a trigger button
     const buttons = [
@@ -125,11 +171,11 @@ export class RichTextExecutor extends BaseExecutor {
       for (let i = 0; i < 15; i++) {
         await this.delay(200);
         editable = findEditor();
-        if (isReady(editable)) break;
+        if (isReady(editable) && isEditableNode(editable)) break;
       }
     }
 
-    return editable;
+    return isReady(editable) && isEditableNode(editable) ? editable : null;
   }
 
   /** Quill: build <p> elements directly (Quill's MutationObserver syncs) */
@@ -214,6 +260,22 @@ export class RichTextExecutor extends BaseExecutor {
     try {
       const fb = findEditor() ?? (this.findElement(tool) as HTMLElement | null);
       if (!fb) return this.fail(`Failed: ${originalError.message}`);
+
+      if (isTextInput(fb)) {
+        fb.value = text;
+        fb.dispatchEvent(
+          new InputEvent('input', {
+            bubbles: true,
+            cancelable: true,
+            inputType: 'insertText',
+            data: text,
+          }),
+        );
+        fb.dispatchEvent(new Event('change', { bubbles: true }));
+        return this.ok(
+          `Wrote ${text.length} chars (fallback) to "${tool.title ?? tool.name}"`,
+        );
+      }
 
       const lines = text.split('\n');
       fb.innerHTML = lines

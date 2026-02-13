@@ -78,7 +78,7 @@ export class MediaScanner extends BaseScanner {
   }
 
   private getActionAnnotations(action: MediaToolAction): ToolAnnotations {
-    if (action === 'get-state') {
+    if (action === 'get-state' || action === 'get-transcript') {
       return this.makeAnnotations({ readOnly: true, idempotent: true });
     }
 
@@ -116,6 +116,10 @@ export class MediaScanner extends BaseScanner {
         description: `Get media state: ${label}`,
         title: `Get state: ${label}`,
       },
+      'get-transcript': {
+        description: `Get media transcript: ${label}`,
+        title: `Get transcript: ${label}`,
+      },
       'next-track': {
         description: `Next track: ${label}`,
         title: `Next track: ${label}`,
@@ -149,6 +153,8 @@ export class MediaScanner extends BaseScanner {
         return player.capabilities.unmute;
       case 'get-state':
         return player.capabilities.getState;
+      case 'get-transcript':
+        return player.platform === 'youtube';
       case 'next-track':
         return player.capabilities.nextTrack;
       case 'previous-track':

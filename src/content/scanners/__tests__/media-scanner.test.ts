@@ -86,4 +86,51 @@ describe('MediaScanner', () => {
     expect(names.some((n) => n.startsWith('media.previous-track.'))).toBe(true);
     expect(names.some((n) => n.startsWith('media.shuffle.'))).toBe(true);
   });
+
+  it('emits get-transcript action for YouTube players', () => {
+    const anchor = document.createElement('div');
+    anchor.setAttribute('aria-label', 'YouTube Player');
+
+    const youtubePlayer: IVideoPlayer = {
+      id: 'youtube-test-player',
+      platform: 'youtube',
+      capabilities: {
+        play: true,
+        pause: true,
+        seek: true,
+        setVolume: true,
+        mute: true,
+        unmute: true,
+        getState: true,
+      },
+      anchorElement: anchor,
+      play: async () => undefined,
+      pause: async () => undefined,
+      seek: async () => undefined,
+      setVolume: async () => undefined,
+      mute: async () => undefined,
+      unmute: async () => undefined,
+      getState: async () => ({
+        currentTime: 0,
+        duration: 0,
+        paused: true,
+        volume: 1,
+        muted: false,
+        playbackRate: 1,
+        title: 'YouTube Player',
+        platform: 'youtube',
+        hasPlaylist: true,
+      }),
+      isAlive: () => true,
+      dispose: () => undefined,
+    };
+
+    mockRefresh.mockReturnValue([youtubePlayer]);
+
+    const scanner = new MediaScanner();
+    const tools = scanner.scan(document);
+    const names = tools.map((t) => t.name);
+
+    expect(names.some((n) => n.startsWith('media.get-transcript.'))).toBe(true);
+  });
 });

@@ -24,6 +24,25 @@ const RICH_TEXT_SELECTORS = [
   '[aria-label*="write a reply" i]',
   '[aria-label*="scrivi un post" i]',
   '[aria-label*="componi" i]',
+  '[aria-label*="comment" i]',
+  '[aria-label*="reply" i]',
+  '[aria-label*="message" i]',
+  '[placeholder*="comment" i]',
+  '[placeholder*="reply" i]',
+  '[placeholder*="message" i]',
+  // Textareas / textboxes for comment/message composers
+  'textarea[aria-label*="comment" i]',
+  'textarea[aria-label*="reply" i]',
+  'textarea[placeholder*="comment" i]',
+  'textarea[placeholder*="reply" i]',
+  'textarea[placeholder*="message" i]',
+  'textarea[data-testid*="comment" i]',
+  // YouTube comment UI
+  'ytd-comment-simplebox-renderer #contenteditable-root',
+  'ytd-comment-simplebox-renderer #simplebox-placeholder',
+  // WhatsApp composer surface
+  'div[contenteditable="true"][data-tab]',
+  'div[data-testid*="conversation-compose-box-input" i]',
   // Popular WYSIWYG editors
   '.DraftEditor-root [contenteditable]',
   '.ProseMirror',
@@ -70,15 +89,15 @@ export class RichTextScanner extends BaseScanner {
 
       // Skip elements that are NOT actual editing surfaces — aria-label selectors
       // (e.g. "[aria-label*='Start a post']") can match trigger buttons
-      if (
-        !(el as HTMLElement).isContentEditable &&
-        el.getAttribute('role') !== 'textbox' &&
-        !el.matches('iframe, textarea, .CodeMirror-code') &&
-        !el.querySelector('[contenteditable="true"], [contenteditable="plaintext-only"]')
-      ) continue;
+      const label = this.getLabel(el);
+      const isComment = /comment|reply|risposta|commento|rispondi/i.test(label || '');
+      const isMessage = /message|messaggio|dm|chat|invia messaggio/i.test(label || '');
+      const editable = this.isEditableSurface(el);
+      const isCommentTrigger = isComment && this.isLikelyEditorTrigger(el);
+      const isMessageTrigger = isMessage && this.isLikelyEditorTrigger(el);
+      if (!editable && !isCommentTrigger && !isMessageTrigger) continue;
 
       // Build a unique key for local dedup
-      const label = this.getLabel(el);
       const elId = el.id || el.getAttribute('data-testid') || '';
       const dedupKey = `${label}::${elId}::${el.tagName}`;
       if (seen.has(dedupKey)) continue;
@@ -97,8 +116,7 @@ export class RichTextScanner extends BaseScanner {
       }
 
       const descPrefix = platform ? `${platform} — ` : '';
-      const isComment = /comment|reply|risposta|commento/i.test(label || '');
-      const toolType = isComment ? 'comment' : 'compose';
+      const toolType = isComment ? 'comment' : isMessage ? 'message' : 'compose';
 
       this.claim(el);
       tools.push(
@@ -125,7 +143,7 @@ export class RichTextScanner extends BaseScanner {
             hasSemanticTag: false,
           }),
           {
-            title: `${descPrefix}${isComment ? 'Comment' : 'Compose'}: ${label || 'text editor'}`,
+            title: `${descPrefix}${isComment ? 'Comment' : isMessage ? 'Message' : 'Compose'}: ${label || 'text editor'}`,
             annotations: this.makeAnnotations({ destructive: false, idempotent: true }),
           },
         ),
@@ -133,5 +151,26 @@ export class RichTextScanner extends BaseScanner {
     }
 
     return tools;
+  }
+
+  private isEditableSurface(el: Element): boolean {
+    const htmlEl = el as HTMLElement;
+    if (htmlEl.isContentEditable) return true;
+    if (el.getAttribute('role') === 'textbox') return true;
+    if (el.matches('textarea, input[type="text"], .CodeMirror-code, .ProseMirror, .ql-editor')) {
+      return true;
+    }
+    if (el.querySelector('[contenteditable="true"], [contenteditable="plaintext-only"]')) {
+      return true;
+    }
+    return false;
+  }
+
+  private isLikelyEditorTrigger(el: Element): boolean {
+    if ((el as HTMLElement).isContentEditable) return false;
+    if (el.matches('button, [role="button"], [tabindex], ytd-comment-simplebox-renderer #simplebox-placeholder')) {
+      return true;
+    }
+    return false;
   }
 }

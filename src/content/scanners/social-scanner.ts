@@ -1,28 +1,37 @@
 /**
- * Social Action Scanner — discovers like, share, comment, repost, follow,
- * subscribe buttons on social media platforms.
- *
- * Uses first-word matching (not substring) to avoid false positives.
- * Runs BEFORE the interactive scanner so social buttons are claimed here.
+ * Social Action Scanner — discovers social media actions across platforms
+ * (Facebook, Instagram, WhatsApp, X, LinkedIn, Threads, etc.).
  */
 
 import type { Tool, ToolAnnotations } from '../../types';
 import { BaseScanner } from './base-scanner';
 
 /** Social action classification */
-type SocialActionType = 'like' | 'share' | 'follow' | 'comment';
+type SocialActionType =
+  | 'like'
+  | 'share'
+  | 'follow'
+  | 'comment'
+  | 'message'
+  | 'save'
+  | 'join';
 
-// Keyword patterns — must match as whole word at the START of the label
-const LIKE_RE = /^(reagisci|like|mi piace|consiglia|upvote|heart)/i;
-const SHARE_RE = /^(share|condividi|diffondi|repost|retweet|diffusione)/i;
-const FOLLOW_RE = /^(follow|segui|subscribe|iscriviti)/i;
-const COMMENT_RE = /^(comment|commenta|reply|rispondi|risposta)/i;
+const LIKE_RE = /\b(reagisci|like|mi piace|consiglia|upvote|heart|reaction|react|love)\b/i;
+const SHARE_RE = /\b(share|condividi|diffondi|repost|retweet|forward|inoltra|send to|invia a)\b/i;
+const FOLLOW_RE = /\b(follow|segui|subscribe|iscriviti|segui già|following)\b/i;
+const COMMENT_RE = /\b(comment|commenta|reply|rispondi|risposta|add comment|leave a comment)\b/i;
+const MESSAGE_RE = /\b(message|messaggio|chat|invia messaggio|send message|whatsapp|dm|direct message)\b/i;
+const SAVE_RE = /\b(save|salva|bookmark|preferiti|saved)\b/i;
+const JOIN_RE = /\b(join|unisciti|iscriviti al gruppo|partecipa)\b/i;
 
 const DESCRIPTIONS: Record<SocialActionType, string> = {
   like: 'Like/React',
   share: 'Share/Repost',
   follow: 'Follow/Subscribe',
-  comment: 'Open comment/reply',
+  comment: 'Open comment/reply composer',
+  message: 'Open message/chat action',
+  save: 'Save/Bookmark content',
+  join: 'Join community/channel/group',
 };
 
 const TITLES: Record<SocialActionType, string> = {
@@ -30,7 +39,22 @@ const TITLES: Record<SocialActionType, string> = {
   share: 'Share',
   follow: 'Follow',
   comment: 'Comment',
+  message: 'Message',
+  save: 'Save',
+  join: 'Join',
 };
+
+const PLATFORM_MAP: ReadonlyArray<{ re: RegExp; name: string }> = [
+  { re: /facebook|fb\.com/i, name: 'facebook' },
+  { re: /instagram/i, name: 'instagram' },
+  { re: /whatsapp/i, name: 'whatsapp' },
+  { re: /twitter|x\.com/i, name: 'x' },
+  { re: /linkedin/i, name: 'linkedin' },
+  { re: /threads\.net/i, name: 'threads' },
+  { re: /tiktok/i, name: 'tiktok' },
+  { re: /reddit/i, name: 'reddit' },
+  { re: /youtube/i, name: 'youtube' },
+];
 
 export class SocialScanner extends BaseScanner {
   readonly category = 'social-action' as const;
@@ -40,29 +64,50 @@ export class SocialScanner extends BaseScanner {
     const seen = new Set<string>();
 
     const candidates = (root as ParentNode).querySelectorAll(
-      '[aria-label], [data-testid*="like" i], [data-testid*="share" i], ' +
-        '[data-testid*="retweet" i], [data-testid*="follow" i], [data-testid*="comment" i], ' +
+      [
+        'button',
+        '[role="button"]',
+        'a[aria-label]',
+        '[aria-label][tabindex]',
+        '[data-testid*="like" i]',
+        '[data-testid*="share" i]',
+        '[data-testid*="retweet" i]',
+        '[data-testid*="follow" i]',
+        '[data-testid*="comment" i]',
         '[data-testid*="reply" i]',
+        '[data-testid*="message" i]',
+        '[data-testid*="save" i]',
+        '[data-icon="send"]',
+        '[aria-label*="whatsapp" i]',
+      ].join(', '),
     );
+
+    const platform = this.detectPlatform(location.hostname);
 
     for (const btn of candidates) {
       if (tools.length >= this.maxTools) break;
       if (this.isClaimed(btn)) continue;
       if (!this.isVisible(btn)) continue;
       if (!this.hasMeaningfulSize(btn)) continue;
+      if ((btn as HTMLElement).isContentEditable) continue;
+      if (btn.getAttribute('role') === 'textbox') continue;
 
       const label = (btn.getAttribute('aria-label') || '').trim();
       const testId = (btn.getAttribute('data-testid') || '').toLowerCase();
-      if (!label && !testId) continue;
+      const text = (btn.textContent || '').trim();
+      const className = (btn.getAttribute('class') || '').toLowerCase();
+      const href = (btn.getAttribute('href') || '').toLowerCase();
+      const dataIcon = (btn.getAttribute('data-icon') || '').toLowerCase();
+      if (!label && !testId && !text && !className && !href && !dataIcon) continue;
 
       // Classify by label or data-testid
-      const actionType = this.classify(label, testId, btn);
+      const actionType = this.classify({ label, text, testId, className, href, dataIcon });
       if (!actionType) continue;
 
       // Build a short, clean slug
-      const shortLabel = label.length > 40 ? label.slice(0, 40) : label;
-      const slug = this.slugify(shortLabel) || actionType;
-      const key = `${actionType}-${slug}`;
+      const shortLabel = (label || text).slice(0, 48) || actionType;
+      const slug = this.slugify(`${platform}-${shortLabel}`) || `${platform}-${actionType}`;
+      const key = `${platform}-${actionType}-${slug}`;
       if (seen.has(key)) continue;
       seen.add(key);
 
@@ -70,12 +115,12 @@ export class SocialScanner extends BaseScanner {
       tools.push(
         this.createTool(
           `social.${actionType}-${slug}`,
-          `${DESCRIPTIONS[actionType]}: ${shortLabel || actionType}`,
+          `[${platform}] ${DESCRIPTIONS[actionType]}: ${shortLabel}`,
           btn,
           this.makeInputSchema([]),
-          0.8,
+          0.86,
           {
-            title: `${TITLES[actionType]}: ${shortLabel || actionType}`,
+            title: `[${platform}] ${TITLES[actionType]}: ${shortLabel}`,
             annotations: this.socialAnnotations(actionType),
           },
         ),
@@ -87,31 +132,63 @@ export class SocialScanner extends BaseScanner {
 
   /** Classify a candidate element into a social action type */
   private classify(
-    label: string,
-    testId: string,
-    btn: Element,
+    ctx: {
+      label: string;
+      text: string;
+      testId: string;
+      className: string;
+      href: string;
+      dataIcon: string;
+    },
   ): SocialActionType | null {
-    if (LIKE_RE.test(label) || testId.includes('like') || testId.includes('heart')) {
+    const joined = [
+      ctx.label,
+      ctx.text,
+      ctx.testId,
+      ctx.className,
+      ctx.href,
+      ctx.dataIcon,
+    ]
+      .join(' ')
+      .toLowerCase();
+
+    if (LIKE_RE.test(joined) || joined.includes('heart') || joined.includes('reaction')) {
       return 'like';
     }
-    if (SHARE_RE.test(label) || testId.includes('share') || testId.includes('retweet')) {
+    if (SHARE_RE.test(joined) || joined.includes('retweet') || joined.includes('repost')) {
       return 'share';
     }
-    if (FOLLOW_RE.test(label) || testId.includes('follow')) {
+    if (FOLLOW_RE.test(joined) || joined.includes('subscribe')) {
       return 'follow';
     }
-    if (COMMENT_RE.test(label) || testId.includes('comment') || testId.includes('reply')) {
-      // Skip contenteditable (handled by richtext scanner)
-      if ((btn as HTMLElement).isContentEditable) return null;
+    if (COMMENT_RE.test(joined) || joined.includes('reply') || joined.includes('comment')) {
       return 'comment';
     }
+    if (MESSAGE_RE.test(joined) || joined.includes('data-icon="send"') || joined.includes('send')) {
+      return 'message';
+    }
+    if (SAVE_RE.test(joined)) {
+      return 'save';
+    }
+    if (JOIN_RE.test(joined)) {
+      return 'join';
+    }
+
     return null;
   }
 
   private socialAnnotations(actionType: SocialActionType): ToolAnnotations {
     return this.makeAnnotations({
-      destructive: actionType !== 'comment',
-      idempotent: actionType === 'comment',
+      destructive: actionType !== 'comment' && actionType !== 'message',
+      idempotent: actionType === 'comment' || actionType === 'message',
     });
+  }
+
+  private detectPlatform(hostname: string): string {
+    const lower = hostname.toLowerCase();
+    for (const row of PLATFORM_MAP) {
+      if (row.re.test(lower)) return row.name;
+    }
+    return 'social';
   }
 }

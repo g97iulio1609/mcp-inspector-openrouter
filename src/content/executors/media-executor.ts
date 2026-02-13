@@ -119,6 +119,14 @@ export class MediaExecutor extends BaseExecutor {
         return this.ok(`State retrieved: ${description}`, state);
       }
 
+      case 'get-transcript': {
+        const transcript = await this.extractTranscript(player);
+        if (!transcript) {
+          return this.fail('Transcript unavailable for current media context');
+        }
+        return this.ok(`Transcript retrieved: ${description}`, transcript);
+      }
+
       case 'next-track': {
         if (!player.nextTrack) return this.fail('next-track not supported by this player');
         await player.nextTrack();
@@ -148,5 +156,64 @@ export class MediaExecutor extends BaseExecutor {
       throw new Error(`Invalid ${argName} argument`);
     }
     return numberValue;
+  }
+
+  private async extractTranscript(
+    player: IVideoPlayer,
+  ): Promise<{ text: string; segments: string[] } | null> {
+    if (player.platform !== 'youtube') return null;
+
+    const readSegments = (): string[] => {
+      const selectors = [
+        'ytd-transcript-segment-renderer #segment-text',
+        'ytd-transcript-segment-renderer .segment-text',
+        'ytd-transcript-renderer #segments-container ytd-transcript-segment-renderer',
+        '[data-testid*="transcript" i] [data-testid*="segment" i]',
+        '[class*="transcript" i] [class*="segment" i]',
+      ];
+
+      const out: string[] = [];
+      for (const selector of selectors) {
+        const nodes = Array.from(document.querySelectorAll<HTMLElement>(selector));
+        for (const node of nodes) {
+          const text = (node.textContent ?? '').trim();
+          if (text) out.push(text);
+        }
+      }
+
+      return [...new Set(out)];
+    };
+
+    let segments = readSegments();
+    if (segments.length === 0) {
+      const openButtons = [
+        'button[aria-label*="transcript" i]',
+        'tp-yt-paper-button[aria-label*="transcript" i]',
+        'button[aria-label*="show transcript" i]',
+        'button[title*="transcript" i]',
+      ];
+
+      const btn = openButtons
+        .map((selector) => document.querySelector<HTMLElement>(selector))
+        .find((el) => !!el);
+
+      if (btn) {
+        btn.click();
+        await this.wait(300);
+      }
+
+      segments = readSegments();
+    }
+
+    if (segments.length === 0) return null;
+
+    return {
+      text: segments.join('\n'),
+      segments,
+    };
+  }
+
+  private wait(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

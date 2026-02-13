@@ -47,6 +47,7 @@ export type MediaToolAction =
   | 'mute'
   | 'unmute'
   | 'get-state'
+  | 'get-transcript'
   | 'next-track'
   | 'previous-track'
   | 'shuffle';
@@ -59,6 +60,7 @@ export const CORE_MEDIA_ACTIONS: readonly MediaToolAction[] = [
   'mute',
   'unmute',
   'get-state',
+  'get-transcript',
 ] as const;
 
 export const PLAYLIST_MEDIA_ACTIONS: readonly MediaToolAction[] = [
