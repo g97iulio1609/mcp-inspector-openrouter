@@ -9,3 +9,4 @@ export { PlanningAdapter } from './planning-adapter';
 export { SubagentAdapter } from './subagent-adapter';
 export { AgentOrchestrator } from './agent-orchestrator';
 export type { OrchestratorDeps } from './agent-orchestrator';
+export { TypedEventBus } from './event-bus';

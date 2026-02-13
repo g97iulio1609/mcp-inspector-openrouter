@@ -20,7 +20,9 @@ import type {
   ToolTarget,
   OrchestratorEvent,
   OrchestratorEventListener,
+  AgentEventMap,
 } from '../ports/types';
+import { TypedEventBus } from './event-bus';
 import type { OpenRouterChat } from '../services/adapters';
 import type { ChatConfig } from '../services/adapters/openrouter';
 import type { ToolResponse, ParsedFunctionCall, PageContext, CleanTool, ContentPart } from '../types';
@@ -40,14 +42,43 @@ export interface OrchestratorDeps {
 
 export class AgentOrchestrator implements IAgentPort {
   private chat: OpenRouterChat | null = null;
-  private readonly listeners = new Set<OrchestratorEventListener>();
+
+  /** Typed event bus for granular subscriptions. */
+  readonly eventBus = new TypedEventBus<AgentEventMap>();
 
   constructor(private readonly deps: OrchestratorDeps) {}
 
-  /** Subscribe to orchestrator events. Returns an unsubscribe function. */
+  /**
+   * Subscribe to orchestrator events (legacy API).
+   * Internally delegates to the typed event bus.
+   * Returns an unsubscribe function.
+   */
   onEvent(listener: OrchestratorEventListener): () => void {
-    this.listeners.add(listener);
-    return () => { this.listeners.delete(listener); };
+    const unsubs: Array<() => void> = [];
+
+    unsubs.push(this.eventBus.on('tool:call', (data) => {
+      listener({ type: 'tool_call', name: data.name, args: data.args });
+    }));
+    unsubs.push(this.eventBus.on('tool:result', (data) => {
+      listener({ type: 'tool_result', name: data.name, data: data.data, success: data.success });
+    }));
+    unsubs.push(this.eventBus.on('tool:error', (data) => {
+      listener({ type: 'tool_error', name: data.name, error: data.error });
+    }));
+    unsubs.push(this.eventBus.on('ai:response', (data) => {
+      listener({ type: 'ai_response', text: data.text, reasoning: data.reasoning });
+    }));
+    unsubs.push(this.eventBus.on('navigation', (data) => {
+      listener({ type: 'navigation', toolName: data.toolName });
+    }));
+    unsubs.push(this.eventBus.on('timeout', () => {
+      listener({ type: 'timeout' });
+    }));
+    unsubs.push(this.eventBus.on('max_iterations', () => {
+      listener({ type: 'max_iterations' });
+    }));
+
+    return () => { for (const u of unsubs) u(); };
   }
 
   async run(prompt: string | ContentPart[], context: AgentContext): Promise<AgentResult> {
@@ -76,7 +107,7 @@ export class AgentOrchestrator implements IAgentPort {
 
       if (performance.now() - loopStart > LOOP_TIMEOUT_MS) {
         logger.warn('Orchestrator', 'Tool loop timed out after 60s');
-        this.emit({ type: 'timeout' });
+        this.eventBus.emit('timeout');
         break;
       }
 
@@ -84,7 +115,7 @@ export class AgentOrchestrator implements IAgentPort {
 
       if (functionCalls.length === 0) {
         const text = currentResult.text?.trim() ?? '';
-        this.emit({ type: 'ai_response', text, reasoning: currentResult.reasoning });
+        this.eventBus.emit('ai:response', { text, reasoning: currentResult.reasoning });
         return this.buildResult(
           text,
           currentResult.reasoning,
@@ -118,15 +149,15 @@ export class AgentOrchestrator implements IAgentPort {
         }
 
         try {
-          this.emit({ type: 'tool_call', name: fc.name, args: fc.args as Record<string, unknown> });
+          this.eventBus.emit('tool:call', { name: fc.name, args: fc.args as Record<string, unknown> });
           const result = await toolPort.execute(fc.name, fc.args as Record<string, unknown>, target);
 
           if (result.success) {
             planningPort.markStepDone();
-            this.emit({ type: 'tool_result', name: fc.name, data: result.data, success: true });
+            this.eventBus.emit('tool:result', { name: fc.name, data: result.data, success: true });
           } else {
             planningPort.markStepFailed(result.error);
-            this.emit({ type: 'tool_result', name: fc.name, data: result.error, success: false });
+            this.eventBus.emit('tool:result', { name: fc.name, data: result.error, success: false });
           }
 
           toolCallRecords.push({
@@ -144,7 +175,7 @@ export class AgentOrchestrator implements IAgentPort {
 
           // Navigation triggers rescan — skip remaining calls
           if (result.success && isNavigationTool(fc.name)) {
-            this.emit({ type: 'navigation', toolName: fc.name });
+            this.eventBus.emit('navigation', { toolName: fc.name });
             logger.info('Orchestrator', `Navigation detected (${fc.name}), rescanning`);
             const rescan = await waitForPageAndRescan(target.tabId, tools);
             pageContext = rescan.pageContext;
@@ -155,7 +186,7 @@ export class AgentOrchestrator implements IAgentPort {
         } catch (e) {
           const error = (e as Error).message;
           planningPort.markStepFailed(error);
-          this.emit({ type: 'tool_error', name: fc.name, error });
+          this.eventBus.emit('tool:error', { name: fc.name, error });
 
           toolCallRecords.push({
             name: fc.name,
@@ -189,7 +220,7 @@ export class AgentOrchestrator implements IAgentPort {
     }
 
     // Reached max iterations
-    this.emit({ type: 'max_iterations' });
+    this.eventBus.emit('max_iterations');
     return this.buildResult(
       '⚠️ Reached maximum tool iterations.',
       undefined,
@@ -202,21 +233,10 @@ export class AgentOrchestrator implements IAgentPort {
 
   async dispose(): Promise<void> {
     this.chat = null;
-    this.listeners.clear();
+    this.eventBus.dispose();
   }
 
   // ── Private ──
-
-  private emit(event: OrchestratorEvent): void {
-    const snapshot = [...this.listeners];
-    for (const cb of snapshot) {
-      try {
-        cb(event);
-      } catch {
-        // Isolate listener errors so the loop continues
-      }
-    }
-  }
 
   private buildResult(
     text: string,

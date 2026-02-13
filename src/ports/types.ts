@@ -113,6 +113,19 @@ export interface ContextSummary {
   readonly summary: string;
 }
 
+// ── Typed Event Map ──
+
+/** Typed event map for the agent orchestrator */
+export interface AgentEventMap {
+  readonly 'tool:call': { readonly name: string; readonly args: Record<string, unknown> };
+  readonly 'tool:result': { readonly name: string; readonly data: unknown; readonly success: boolean };
+  readonly 'tool:error': { readonly name: string; readonly error: string };
+  readonly 'ai:response': { readonly text: string; readonly reasoning?: string };
+  readonly 'navigation': { readonly toolName: string };
+  readonly 'timeout': undefined;
+  readonly 'max_iterations': undefined;
+}
+
 // ── Orchestrator Event Types ──
 
 /** Event emitted by the orchestrator during execution */
