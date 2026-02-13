@@ -1,0 +1,93 @@
+/**
+ * Human-readable live state formatter for AI system prompts.
+ *
+ * Pure function that converts a LiveStateSnapshot into a compact,
+ * emoji-annotated string optimised for AI token budgets.
+ */
+
+import type {
+  LiveStateSnapshot,
+  MediaLiveState,
+  FormLiveState,
+  NavigationLiveState,
+  AuthLiveState,
+  InteractiveLiveState,
+} from '../types/live-state.types';
+
+/** Format seconds as mm:ss */
+function fmtTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function formatMedia(media: readonly MediaLiveState[]): string | null {
+  if (!media.length) return null;
+  const lines = media.map((m) => {
+    const status = m.paused ? '⏸️ PAUSED' : '▶️ PLAYING';
+    const time = `${fmtTime(m.currentTime)}/${fmtTime(m.duration)}`;
+    const vol = `volume ${Math.round(m.volume * 100)}%`;
+    const muted = m.muted ? ', 🔇 MUTED' : '';
+    const speed = m.playbackRate !== 1 ? `, speed ${m.playbackRate}x` : '';
+    return `  - "${m.title}" (${m.platform}): ${status} at ${time}, ${vol}${muted}${speed}`;
+  });
+  return `🎬 Media Players:\n${lines.join('\n')}`;
+}
+
+function formatForms(forms: readonly FormLiveState[]): string | null {
+  if (!forms.length) return null;
+  const lines = forms.map((f) => {
+    const pct = `${f.filledFields}/${f.totalFields} filled (${f.completionPercent}%)`;
+    const dirty = f.dirtyFields.length ? `, dirty: [${f.dirtyFields.join(', ')}]` : '';
+    const errors = f.hasValidationErrors ? ', has validation errors' : '';
+    return `  - "${f.toolName}" (${f.formId}): ${pct}${dirty}${errors}`;
+  });
+  return `📝 Forms:\n${lines.join('\n')}`;
+}
+
+function formatNavigation(nav: NavigationLiveState): string | null {
+  if (!nav.currentUrl) return null;
+  const parts: string[] = [`  - URL: ${nav.currentUrl}`];
+  const detail: string[] = [];
+  detail.push(`Scroll: ${nav.scrollPercent}%`);
+  if (nav.visibleSection) detail.push(`Section: "${nav.visibleSection}"`);
+  if (nav.activeTab) detail.push(`Tab: "${nav.activeTab}"`);
+  if (detail.length) parts.push(`  - ${detail.join(' | ')}`);
+  if (nav.breadcrumb?.length) parts.push(`  - Breadcrumb: ${nav.breadcrumb.join(' > ')}`);
+  return `🧭 Navigation:\n${parts.join('\n')}`;
+}
+
+function formatAuth(auth: AuthLiveState): string | null {
+  if (!auth.isLoggedIn && !auth.hasLoginForm && !auth.hasLogoutButton) return null;
+  if (auth.isLoggedIn) {
+    const user = auth.userName ? ` as "${auth.userName}"` : '';
+    const logout = auth.hasLogoutButton ? ' | Logout available' : '';
+    return `🔐 Auth: ✅ Logged in${user}${logout}`;
+  }
+  const login = auth.hasLoginForm ? 'Login form available' : 'Not logged in';
+  return `🔐 Auth: ${login}`;
+}
+
+function formatInteractive(inter: InteractiveLiveState): string | null {
+  const parts: string[] = [];
+  if (inter.openModals.length) parts.push(`Open modals: ${inter.openModals.map((m) => `"${m}"`).join(', ')}`);
+  if (inter.expandedAccordions.length) parts.push(`Expanded: ${inter.expandedAccordions.map((a) => `"${a}"`).join(', ')}`);
+  if (inter.openDropdowns.length) parts.push(`Open dropdowns: ${inter.openDropdowns.map((d) => `"${d}"`).join(', ')}`);
+  if (inter.visibleNotifications.length) parts.push(`Notifications: ${inter.visibleNotifications.map((n) => `"${n}"`).join(', ')}`);
+  if (!parts.length) return null;
+  return `🎛️ Interactive:\n${parts.map((p) => `  - ${p}`).join('\n')}`;
+}
+
+/** Convert a LiveStateSnapshot into a compact, human-readable prompt block. */
+export function formatLiveStateForPrompt(snapshot: LiveStateSnapshot): string {
+  const sections: string[] = [
+    formatMedia(snapshot.media),
+    formatForms(snapshot.forms),
+    formatNavigation(snapshot.navigation),
+    formatAuth(snapshot.auth),
+    formatInteractive(snapshot.interactive),
+  ].filter((s): s is string => s !== null);
+
+  if (!sections.length) return '';
+  return `**LIVE PAGE STATE (real-time):**\n\n${sections.join('\n\n')}`;
+}

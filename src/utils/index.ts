@@ -45,3 +45,5 @@ export {
   inlineFormat,
   formatAIText,
 } from './formatting';
+
+export { formatLiveStateForPrompt } from './live-state-formatter';

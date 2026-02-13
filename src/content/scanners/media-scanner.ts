@@ -10,6 +10,8 @@ import {
   type IVideoPlayer,
   type MediaToolAction,
 } from '../media';
+import type { MediaLiveState } from '../../types/live-state.types';
+import { getLiveStateManager } from '../live-state';
 import { BaseScanner } from './base-scanner';
 
 export class MediaScanner extends BaseScanner {
@@ -38,12 +40,13 @@ export class MediaScanner extends BaseScanner {
   private createMediaTool(player: IVideoPlayer, action: MediaToolAction): Tool {
     const label = this.getPlayerLabel(player);
     const { description, title } = this.getActionText(action, label);
+    const enriched = description + this.getLiveStateHint(player.id, action);
     const schema = this.getActionSchema(action);
     const confidence = player.platform === 'youtube' ? 0.95 : 0.9;
 
     return this.createTool(
       `media.${action}.${player.id}`,
-      description,
+      enriched,
       player.anchorElement,
       schema,
       confidence,
@@ -164,5 +167,37 @@ export class MediaScanner extends BaseScanner {
       default:
         return false;
     }
+  }
+
+  /** Return a live-state hint suffix for the tool description, or empty string. */
+  private getLiveStateHint(playerId: string, action: MediaToolAction): string {
+    const mediaStates = getLiveStateManager().getLatestSnapshot()?.media;
+    if (!mediaStates) return '';
+    const state = mediaStates.find((m) => m.playerId === playerId);
+    if (!state) return '';
+
+    const time = this.fmtTimeSec(state.currentTime);
+    switch (action) {
+      case 'play':
+        return state.paused ? '' : ` ⚠️ Already playing at ${time}. Use seek(0) to restart`;
+      case 'pause':
+        return state.paused ? ` ℹ️ Already paused at ${time}` : '';
+      case 'mute':
+        return state.muted ? ' ℹ️ Already muted' : '';
+      case 'unmute':
+        return state.muted ? '' : ' ℹ️ Already unmuted';
+      case 'get-state': {
+        const status = state.paused ? 'paused' : 'playing';
+        return ` (current: ${status} at ${time}, vol ${Math.round(state.volume * 100)}%)`;
+      }
+      default:
+        return '';
+    }
+  }
+
+  private fmtTimeSec(seconds: number): string {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
   }
 }

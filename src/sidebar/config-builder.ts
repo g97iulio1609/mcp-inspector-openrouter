@@ -13,6 +13,7 @@ import {
   OPENROUTER_DEFAULT_MAX_OUTPUT_TOKENS,
   OPENROUTER_DEFAULT_MAX_INPUT_TOKENS,
 } from '../utils/constants';
+import { formatLiveStateForPrompt } from '../utils/live-state-formatter';
 
 // ── Schema template utilities ──
 
@@ -391,6 +392,22 @@ export function buildChatConfig(
     }
     if (pageContext.pageText) {
       systemInstruction.push('', '**PAGE CONTENT (visible text):**', smartTruncatePageText(pageContext.pageText, 4000));
+    }
+
+    if (pageContext.liveState) {
+      const liveBlock = formatLiveStateForPrompt(pageContext.liveState);
+      if (liveBlock) {
+        systemInstruction.push(
+          '',
+          '19. **LIVE STATE AWARENESS (CRITICAL):** The LIVE PAGE STATE below shows the current state of media players, forms, navigation, auth, and interactive elements. ' +
+            'Use this to make smart decisions: (a) Do NOT play a video that is already playing — use seek(0) + play to restart. ' +
+            '(b) Do NOT pause a video that is already paused. (c) Check form completion before submitting. ' +
+            '(d) Be aware of open modals, expanded accordions, and current scroll position. ' +
+            'The LIVE STATE is REAL-TIME and updates continuously — always trust it over assumptions.',
+          '',
+          liveBlock,
+        );
+      }
     }
   }
 
