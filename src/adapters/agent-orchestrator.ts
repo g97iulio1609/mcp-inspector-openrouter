@@ -23,7 +23,7 @@ import type {
 } from '../ports/types';
 import type { OpenRouterChat } from '../services/adapters';
 import type { ChatConfig } from '../services/adapters/openrouter';
-import type { ToolResponse, ParsedFunctionCall, PageContext, CleanTool } from '../types';
+import type { ToolResponse, ParsedFunctionCall, PageContext, CleanTool, ContentPart } from '../types';
 import { isNavigationTool, waitForPageAndRescan } from '../sidebar/tool-loop';
 import { logger } from '../sidebar/debug-logger';
 
@@ -50,7 +50,7 @@ export class AgentOrchestrator implements IAgentPort {
     return () => { this.listeners.delete(listener); };
   }
 
-  async run(prompt: string, context: AgentContext): Promise<AgentResult> {
+  async run(prompt: string | ContentPart[], context: AgentContext): Promise<AgentResult> {
     const { toolPort, contextPort, planningPort, buildConfig, chatFactory } = this.deps;
     const { tabId, mentionContexts } = context;
 

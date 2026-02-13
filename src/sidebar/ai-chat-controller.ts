@@ -13,12 +13,16 @@ import {
   STORAGE_KEY_API_KEY,
   STORAGE_KEY_MODEL,
   STORAGE_KEY_SCREENSHOT_ENABLED,
+  STORAGE_KEY_ORCHESTRATOR_MODE,
   DEFAULT_MODEL,
 } from '../utils/constants';
 import * as Store from './chat-store';
 import { buildChatConfig } from './config-builder';
 import type { PlanManager } from './plan-manager';
 import { executeToolLoop } from './tool-loop';
+import { AgentOrchestrator } from '../adapters/agent-orchestrator';
+import { ChromeToolAdapter } from '../adapters/chrome-tool-adapter';
+import { PlanningAdapter } from '../adapters/planning-adapter';
 import type { ConversationController } from './conversation-controller';
 import { createMentionAutocomplete, type MentionAutocomplete, type TabMention } from './tab-mention';
 import { logger } from './debug-logger';
@@ -288,27 +292,112 @@ export class AIChatController {
 
     chat.trimHistory();
 
-    const initialResult = await chat.sendMessage({ message: userMessage, config });
-
     // Determine target tab for tool execution
     const targetTabId = this.activeMentions.length > 0 ? this.activeMentions[0].tabId : tab.id;
 
-    const loopResult = await executeToolLoop({
-      chat,
-      tabId: targetTabId,
-      originTabId: tab.id,
-      initialResult,
-      pageContext,
-      currentTools: allTools,
-      planManager,
-      trace: convCtrl.state.trace,
-      addMessage: (role, content, meta) => convCtrl.addAndRender(role, content, meta, pinnedConv),
-      getConfig: (ctx) => buildChatConfig(ctx, allTools, planManager.planModeEnabled, mentionContexts),
-      onToolsUpdated: (tools) => { setCurrentTools(tools); },
+    // Check orchestrator mode feature flag
+    const orchestratorSettings = await chrome.storage.local.get([STORAGE_KEY_ORCHESTRATOR_MODE]);
+    const useOrchestrator = !!orchestratorSettings[STORAGE_KEY_ORCHESTRATOR_MODE];
+
+    if (useOrchestrator) {
+      await this.runOrchestrator(
+        chat, userMessage, pageContext, allTools, mentionContexts,
+        tab.id, targetTabId, planManager, convCtrl, setCurrentTools, pinnedConv,
+      );
+    } else {
+      const initialResult = await chat.sendMessage({ message: userMessage, config });
+
+      const loopResult = await executeToolLoop({
+        chat,
+        tabId: targetTabId,
+        originTabId: tab.id,
+        initialResult,
+        pageContext,
+        currentTools: allTools,
+        planManager,
+        trace: convCtrl.state.trace,
+        addMessage: (role, content, meta) => convCtrl.addAndRender(role, content, meta, pinnedConv),
+        getConfig: (ctx) => buildChatConfig(ctx, allTools, planManager.planModeEnabled, mentionContexts),
+        onToolsUpdated: (tools) => { setCurrentTools(tools); },
+      });
+
+      setCurrentTools(loopResult.currentTools);
+    }
+    this.pinnedConv = null;
+  }
+
+  private async runOrchestrator(
+    chat: OpenRouterChat,
+    userMessage: string | ContentPart[],
+    pageContext: PageContext | null,
+    allTools: CleanTool[],
+    mentionContexts: { tabId: number; title: string; context: PageContext }[],
+    originTabId: number,
+    targetTabId: number,
+    planManager: PlanManager,
+    convCtrl: ConversationController,
+    setCurrentTools: (tools: CleanTool[]) => void,
+    pinnedConv: { site: string; convId: string },
+  ): Promise<void> {
+    const toolPort = new ChromeToolAdapter();
+    const planningAdapter = new PlanningAdapter(planManager);
+
+    const orchestrator = new AgentOrchestrator({
+      toolPort,
+      contextPort: {} as any, // Not used during run() — context is passed inline
+      planningPort: planningAdapter,
+      chatFactory: () => chat,
+      buildConfig: (ctx, tools) =>
+        buildChatConfig(ctx, tools as CleanTool[], planManager.planModeEnabled, mentionContexts),
     });
 
-    setCurrentTools(loopResult.currentTools);
-    this.pinnedConv = null;
+    // Subscribe to events for UI rendering
+    orchestrator.onEvent((event) => {
+      switch (event.type) {
+        case 'tool_call':
+          convCtrl.addAndRender('tool_call', '', { tool: event.name, args: event.args }, pinnedConv);
+          break;
+        case 'tool_result':
+          convCtrl.addAndRender(
+            'tool_result',
+            typeof event.data === 'string' ? event.data : JSON.stringify(event.data),
+            { tool: event.name },
+            pinnedConv,
+          );
+          break;
+        case 'tool_error':
+          convCtrl.addAndRender('tool_error', event.error, { tool: event.name }, pinnedConv);
+          break;
+        case 'ai_response':
+          convCtrl.addAndRender('ai', event.text, { reasoning: event.reasoning }, pinnedConv);
+          break;
+        case 'timeout':
+          convCtrl.addAndRender('error', '⚠️ Tool execution loop timed out after 60s.', {}, pinnedConv);
+          break;
+        case 'max_iterations':
+          convCtrl.addAndRender('error', '⚠️ Reached maximum tool iterations (10).', {}, pinnedConv);
+          break;
+        case 'navigation':
+          logger.info('Orchestrator', `Navigation detected (${event.toolName})`);
+          break;
+      }
+    });
+
+    const result = await orchestrator.run(userMessage, {
+      pageContext,
+      tools: allTools,
+      conversationHistory: [],
+      liveState: null,
+      tabId: originTabId,
+      mentionContexts: mentionContexts.length > 0
+        ? mentionContexts.map((mc) => ({ tabId: mc.tabId, title: mc.title, context: mc.context }))
+        : undefined,
+    });
+
+    setCurrentTools(result.updatedTools as CleanTool[]);
+    planManager.markRemainingStepsDone();
+
+    await orchestrator.dispose();
   }
 
   private getFormattedDate(): string {

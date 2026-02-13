@@ -6,10 +6,11 @@
  */
 
 import type { AgentContext, AgentResult } from './types';
+import type { ContentPart } from '../types';
 
 export interface IAgentPort {
   /** Execute the agent with a prompt and context, returning the final result */
-  run(prompt: string, context: AgentContext): Promise<AgentResult>;
+  run(prompt: string | ContentPart[], context: AgentContext): Promise<AgentResult>;
 
   /** Release resources (connections, event listeners, etc.) */
   dispose(): Promise<void>;
