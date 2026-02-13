@@ -39,10 +39,10 @@ function addEntry(level: LogLevel, category: string, message: string, data?: unk
 }
 
 export const logger = {
-  debug: (cat: string, msg: string, data?: unknown) => addEntry('DEBUG', cat, msg, data),
-  info:  (cat: string, msg: string, data?: unknown) => addEntry('INFO', cat, msg, data),
-  warn:  (cat: string, msg: string, data?: unknown) => addEntry('WARN', cat, msg, data),
-  error: (cat: string, msg: string, data?: unknown) => addEntry('ERROR', cat, msg, data),
+  debug: (cat: string, msg: string, data?: unknown): void => addEntry('DEBUG', cat, msg, data),
+  info:  (cat: string, msg: string, data?: unknown): void => addEntry('INFO', cat, msg, data),
+  warn:  (cat: string, msg: string, data?: unknown): void => addEntry('WARN', cat, msg, data),
+  error: (cat: string, msg: string, data?: unknown): void => addEntry('ERROR', cat, msg, data),
 
   /** Get all logs as formatted text */
   getText(): string {

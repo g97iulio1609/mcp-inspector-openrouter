@@ -92,6 +92,12 @@ describe('getSecurityTier', () => {
     expect(getSecurityTier(makeTool({ name: 'play-video', category: 'media' }))).toBe(0);
   });
 
+  it('returns NAVIGATION (1) for media playlist actions', () => {
+    expect(getSecurityTier(makeTool({ name: 'media.next-track.player-1', category: 'media' }))).toBe(1);
+    expect(getSecurityTier(makeTool({ name: 'media.previous-track.player-1', category: 'media' }))).toBe(1);
+    expect(getSecurityTier(makeTool({ name: 'media.shuffle.player-1', category: 'media' }))).toBe(1);
+  });
+
   it('returns NAVIGATION (1) for navigation category', () => {
     expect(getSecurityTier(makeTool({ name: 'go-home', category: 'navigation' }))).toBe(1);
   });

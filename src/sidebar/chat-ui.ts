@@ -148,7 +148,7 @@ function appendBubbleWithActions(
     editBtn.className = 'bubble-action-btn';
     editBtn.title = 'Edit message';
     editBtn.innerHTML = ICONS.edit;
-    editBtn.onclick = (e) => {
+    editBtn.onclick = (e): void => {
       e.stopPropagation();
       const currentText = content;
       const bodyEl = bubble.querySelector('.bubble-body') as HTMLElement;
@@ -165,7 +165,7 @@ function appendBubbleWithActions(
       const saveBtn = document.createElement('button');
       saveBtn.innerHTML = ICONS.check + ' Save';
       saveBtn.className = 'bubble-edit-save';
-      saveBtn.onclick = () => {
+      saveBtn.onclick = (): void => {
         const newContent = textarea.value.trim();
         if (newContent && newContent !== currentText) {
           actions.onEdit(index, newContent);
@@ -178,7 +178,7 @@ function appendBubbleWithActions(
       const cancelBtn = document.createElement('button');
       cancelBtn.innerHTML = ICONS.x + ' Cancel';
       cancelBtn.className = 'bubble-edit-cancel';
-      cancelBtn.onclick = () => {
+      cancelBtn.onclick = (): void => {
         bodyEl.textContent = currentText;
         btnRow.remove();
       };
@@ -199,7 +199,7 @@ function appendBubbleWithActions(
   deleteBtn.className = 'bubble-action-btn';
   deleteBtn.title = 'Delete this and all subsequent messages';
   deleteBtn.innerHTML = ICONS.trash;
-  deleteBtn.onclick = (e) => {
+  deleteBtn.onclick = (e): void => {
     e.stopPropagation();
     actions.onDelete(index);
   };

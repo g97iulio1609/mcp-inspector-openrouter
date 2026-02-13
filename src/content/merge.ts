@@ -49,7 +49,12 @@ export function getSecurityTier(tool: Tool): SecurityTier {
 
   // Safe
   if (cat === 'page-state') return SecurityTierLevel.SAFE;
-  if (cat === 'media') return SecurityTierLevel.SAFE;
+  if (cat === 'media') {
+    if (/^media\.(next-track|previous-track|shuffle)\./i.test(name)) {
+      return SecurityTierLevel.NAVIGATION;
+    }
+    return SecurityTierLevel.SAFE;
+  }
 
   // Navigation
   if (cat === 'navigation') return SecurityTierLevel.NAVIGATION;

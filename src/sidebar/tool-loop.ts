@@ -50,7 +50,7 @@ export async function waitForPageAndRescan(
 
   await new Promise<void>((resolve) => {
     let resolved = false;
-    const done = () => {
+    const done = (): void => {
       if (!resolved) {
         resolved = true;
         chrome.tabs.onUpdated.removeListener(listener);
@@ -61,14 +61,14 @@ export async function waitForPageAndRescan(
     const listener = (
       updatedTabId: number,
       changeInfo: chrome.tabs.TabChangeInfo,
-    ) => {
+    ): void => {
       if (updatedTabId === tabId && changeInfo.status === 'complete') {
         logger.debug('Rescan', `Tab ${tabId} status=complete`);
         done();
       }
     };
     chrome.tabs.onUpdated.addListener(listener);
-    setTimeout(() => {
+    setTimeout((): void => {
       logger.warn('Rescan', `Page load timeout (5s) for tab ${tabId}`);
       done();
     }, 5000);
@@ -106,7 +106,7 @@ export async function waitForPageAndRescan(
     logger.error('Rescan', 'GET_TOOLS_SYNC failed, falling back to broadcast', e);
     // Fallback: use broadcast-based approach
     const toolsPromise = new Promise<CleanTool[]>((resolve) => {
-      const onMsg = (msg: { tools?: CleanTool[] }) => {
+      const onMsg = (msg: { tools?: CleanTool[] }): void => {
         if (msg.tools) {
           chrome.runtime.onMessage.removeListener(onMsg);
           resolve(msg.tools);

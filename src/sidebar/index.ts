@@ -100,8 +100,8 @@ const aiChat = new AIChatController({
   promptBtn: $<HTMLButtonElement>('promptBtn'),
   apiKeyHint: $<HTMLDivElement>('apiKeyHint'),
   getCurrentTab,
-  getCurrentTools: () => currentTools,
-  setCurrentTools: (t) => { currentTools = t; },
+  getCurrentTools: (): CleanTool[] => currentTools,
+  setCurrentTools: (t): void => { currentTools = t; },
   convCtrl, planManager,
 });
 void aiChat.init();

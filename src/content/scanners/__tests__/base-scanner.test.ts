@@ -39,7 +39,7 @@ class TestScanner extends BaseScanner {
     return this.makeInputSchema(fields);
   }
 
-  public testMakeAnnotations(hints?: { readOnly?: boolean; destructive?: boolean; idempotent?: boolean; openWorld?: boolean }) {
+  public testMakeAnnotations(hints?: { readOnly?: boolean; destructive?: boolean; idempotent?: boolean; openWorld?: boolean }): ReturnType<BaseScanner['makeAnnotations']> {
     return this.makeAnnotations(hints);
   }
 

@@ -58,7 +58,7 @@ export function createMentionAutocomplete(
   let mentionStart = -1;
   let selectedIndex = 0;
 
-  const onInput = async () => {
+  const onInput = async (): Promise<void> => {
     const text = textarea.value;
     const cursorPos = textarea.selectionStart;
 
@@ -86,14 +86,14 @@ export function createMentionAutocomplete(
 
     // Filter and score
     let matches = allTabs
-      .filter(t => t.id != null && t.url && !t.url.startsWith('chrome://'))
-      .map(t => ({ tab: t, score: query.length > 0 ? scoreTab(query, t) : 50 }))
+      .filter((t) => t.id != null && t.url && !t.url.startsWith('chrome://'))
+      .map((t) => ({ tab: t, score: query.length > 0 ? scoreTab(query, t) : 50 }))
       .filter(m => m.score > 0 || query.length === 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, 8);
 
     // Don't show current active tab in the list
-    matches = matches.filter(m => !m.tab.active);
+    matches = matches.filter((m) => !m.tab.active);
 
     if (matches.length === 0) {
       hideDropdown();
@@ -104,7 +104,7 @@ export function createMentionAutocomplete(
     showDropdown(matches.map(m => m.tab), query);
   };
 
-  const onKeydown = (e: KeyboardEvent) => {
+  const onKeydown = (e: KeyboardEvent): void => {
     if (!dropdown) return;
 
     const items = dropdown.querySelectorAll('.mention-item');
@@ -129,13 +129,13 @@ export function createMentionAutocomplete(
     }
   };
 
-  function updateSelection(items: NodeListOf<Element>) {
+  function updateSelection(items: NodeListOf<Element>): void {
     items.forEach((item, i) => {
       (item as HTMLElement).classList.toggle('mention-item--selected', i === selectedIndex);
     });
   }
 
-  function selectTab(item: HTMLElement) {
+  function selectTab(item: HTMLElement): void {
     const tabId = parseInt(item.dataset.tabId ?? '0', 10);
     const title = item.dataset.tabTitle ?? '';
 
@@ -153,7 +153,7 @@ export function createMentionAutocomplete(
     hideDropdown();
   }
 
-  function showDropdown(tabs: chrome.tabs.Tab[], _query: string) {
+  function showDropdown(tabs: chrome.tabs.Tab[], _query: string): void {
     if (!dropdown) {
       dropdown = document.createElement('div');
       dropdown.className = 'mention-dropdown';
@@ -174,7 +174,7 @@ export function createMentionAutocomplete(
       favicon.src = tab.favIconUrl ?? '';
       favicon.width = 16;
       favicon.height = 16;
-      favicon.onerror = () => { favicon.style.display = 'none'; };
+      favicon.onerror = (): void => { favicon.style.display = 'none'; };
       item.appendChild(favicon);
 
       // Title + URL
@@ -197,8 +197,8 @@ export function createMentionAutocomplete(
 
       item.appendChild(info);
 
-      item.addEventListener('click', () => selectTab(item));
-      item.addEventListener('mouseenter', () => {
+      item.addEventListener('click', (): void => selectTab(item));
+      item.addEventListener('mouseenter', (): void => {
         selectedIndex = Array.from(dropdown!.children).indexOf(item);
         updateSelection(dropdown!.querySelectorAll('.mention-item'));
       });
@@ -210,7 +210,7 @@ export function createMentionAutocomplete(
     updateSelection(dropdown.querySelectorAll('.mention-item'));
   }
 
-  function hideDropdown() {
+  function hideDropdown(): void {
     if (dropdown) {
       dropdown.remove();
       dropdown = null;
@@ -227,7 +227,7 @@ export function createMentionAutocomplete(
     while ((match = mentionRegex.exec(text)) !== null) {
       const title = match[1].trim();
       const tabId = parseInt(match[2], 10);
-      const tab = allTabs.find(t => t.id === tabId);
+      const tab = allTabs.find((t) => t.id === tabId);
       mentions.push({
         tabId,
         title,
@@ -243,7 +243,7 @@ export function createMentionAutocomplete(
   textarea.addEventListener('keydown', onKeydown);
 
   // Close dropdown on outside click
-  const onOutsideClick = (e: MouseEvent) => {
+  const onOutsideClick = (e: MouseEvent): void => {
     if (dropdown && !dropdown.contains(e.target as Node) && e.target !== textarea) {
       hideDropdown();
     }
@@ -251,7 +251,7 @@ export function createMentionAutocomplete(
   document.addEventListener('click', onOutsideClick);
 
   return {
-    destroy: () => {
+    destroy: (): void => {
       textarea.removeEventListener('input', onInput);
       textarea.removeEventListener('keydown', onKeydown);
       document.removeEventListener('click', onOutsideClick);
