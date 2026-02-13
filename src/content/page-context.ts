@@ -6,6 +6,7 @@
 import type { PageContext, ProductInfo, PageLink } from '../types';
 import { MAX_PAGE_CONTEXT_PRODUCTS } from '../utils/constants';
 import { getFormValues } from '../utils/dom';
+import { getLiveStateManager } from './live-state';
 
 export function extractPageContext(): PageContext {
   let products: ProductInfo[] | undefined;
@@ -139,6 +140,8 @@ export function extractPageContext(): PageContext {
     }
   }
 
+  const liveState = getLiveStateManager().getLatestSnapshot() ?? undefined;
+
   const ctx: PageContext = {
     url: location.href,
     title: document.title,
@@ -150,6 +153,7 @@ export function extractPageContext(): PageContext {
     ...(headings?.length ? { headings } : {}),
     ...(links?.length ? { links } : {}),
     ...(metaDescription ? { metaDescription } : {}),
+    ...(liveState ? { liveState } : {}),
   };
 
   console.debug('[WebMCP] Page context extracted:', ctx);

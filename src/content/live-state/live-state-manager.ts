@@ -7,6 +7,7 @@
 
 import type {
   IStateProvider,
+  LiveStateCategory,
   LiveStateSnapshot,
   MediaLiveState,
   FormLiveState,
@@ -49,6 +50,11 @@ export class LiveStateManager {
   /** Register a provider for a specific live-state category */
   registerProvider(provider: IStateProvider<unknown>): void {
     this.providers.push(provider);
+  }
+
+  /** Return the first registered provider matching a given category */
+  getProviderByCategory(category: LiveStateCategory): IStateProvider<unknown> | undefined {
+    return this.providers.find((p) => p.category === category);
   }
 
   /** Synchronously collect a full snapshot from all registered providers */

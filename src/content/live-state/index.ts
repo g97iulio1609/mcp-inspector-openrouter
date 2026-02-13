@@ -3,6 +3,7 @@
  */
 
 export { LiveStateManager, getLiveStateManager } from './live-state-manager';
+export { PollingEngine } from './polling-engine';
 export {
   MediaStateProvider,
   FormStateProvider,
