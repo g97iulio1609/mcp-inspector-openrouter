@@ -26,3 +26,6 @@ export { VideoJsPlayer } from './custom-players/videojs-player';
 export { PlyrPlayer } from './custom-players/plyr-player';
 export { JWPlayerAdapter } from './custom-players/jwplayer-player';
 export { MediaElementPlayer } from './custom-players/mediaelement-player';
+export { SpotifyPlayer } from './audio-embeds/spotify-player';
+export { SoundCloudPlayer } from './audio-embeds/soundcloud-player';
+export { BandcampPlayer } from './audio-embeds/bandcamp-player';

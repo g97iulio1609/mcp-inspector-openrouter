@@ -1,4 +1,7 @@
 import type { IVideoPlayer } from './types';
+import { BandcampPlayer } from './audio-embeds/bandcamp-player';
+import { SoundCloudPlayer } from './audio-embeds/soundcloud-player';
+import { SpotifyPlayer } from './audio-embeds/spotify-player';
 import { JWPlayerAdapter } from './custom-players/jwplayer-player';
 import { MediaElementPlayer } from './custom-players/mediaelement-player';
 import { PlyrPlayer } from './custom-players/plyr-player';
@@ -19,9 +22,34 @@ export class PlayerDetector {
     this.detectDailymotion(root, claimed, players);
     this.detectTwitch(root, claimed, players);
     this.detectCustomPlayers(root, claimed, players);
+    this.detectAudioEmbeds(root, claimed, players);
     this.detectNative(root, claimed, players);
 
     return players;
+  }
+
+  private detectAudioEmbeds(
+    root: Document | Element | ShadowRoot,
+    claimed: WeakSet<Element>,
+    players: IVideoPlayer[],
+  ): void {
+    this.detectIframeByPredicate(root, claimed, players, {
+      prefix: 'spotify',
+      predicate: (src) => this.isSpotifyEmbed(src),
+      create: (id, iframe) => new SpotifyPlayer(id, iframe),
+    });
+
+    this.detectIframeByPredicate(root, claimed, players, {
+      prefix: 'soundcloud',
+      predicate: (src) => this.isSoundCloudEmbed(src),
+      create: (id, iframe) => new SoundCloudPlayer(id, iframe),
+    });
+
+    this.detectIframeByPredicate(root, claimed, players, {
+      prefix: 'bandcamp',
+      predicate: (src) => this.isBandcampEmbed(src),
+      create: (id, iframe) => new BandcampPlayer(id, iframe),
+    });
   }
 
   private detectVimeo(
@@ -264,6 +292,41 @@ export class PlayerDetector {
       const url = new URL(src, location.href);
       const host = url.hostname.toLowerCase();
       return host === 'player.twitch.tv' || host === 'www.twitch.tv' || host === 'twitch.tv';
+    } catch {
+      return false;
+    }
+  }
+
+  private isSpotifyEmbed(src: string): boolean {
+    if (!src) return false;
+
+    try {
+      const url = new URL(src, location.href);
+      return url.hostname === 'open.spotify.com' && url.pathname.includes('/embed');
+    } catch {
+      return false;
+    }
+  }
+
+  private isSoundCloudEmbed(src: string): boolean {
+    if (!src) return false;
+
+    try {
+      const url = new URL(src, location.href);
+      return url.hostname === 'w.soundcloud.com' && url.pathname.includes('/player');
+    } catch {
+      return false;
+    }
+  }
+
+  private isBandcampEmbed(src: string): boolean {
+    if (!src) return false;
+
+    try {
+      const url = new URL(src, location.href);
+      const host = url.hostname.toLowerCase();
+      return (host === 'bandcamp.com' || host === 'www.bandcamp.com')
+        && url.pathname.toLowerCase().includes('embeddedplayer');
     } catch {
       return false;
     }

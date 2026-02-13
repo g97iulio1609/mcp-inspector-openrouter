@@ -121,4 +121,37 @@ describe('PlayerDetector', () => {
       player.dispose();
     }
   });
+
+  it('detects audio embeds before native fallback', () => {
+    const root = document.createElement('div');
+
+    const mkIframe = (src: string): HTMLIFrameElement => {
+      const iframe = document.createElement('iframe');
+      iframe.setAttribute('src', src);
+      Object.defineProperty(iframe, 'contentWindow', {
+        value: { postMessage: vi.fn() },
+        configurable: true,
+      });
+      return iframe;
+    };
+
+    root.appendChild(mkIframe('https://open.spotify.com/embed/track/abc123'));
+    root.appendChild(mkIframe('https://w.soundcloud.com/player/?url=https://api.soundcloud.com/tracks/123'));
+    root.appendChild(mkIframe('https://bandcamp.com/EmbeddedPlayer/album=123/size=large'));
+    root.appendChild(document.createElement('audio'));
+
+    const detector = new PlayerDetector();
+    const players = detector.detect(root);
+
+    expect(players.map((p) => p.platform)).toEqual([
+      'spotify',
+      'soundcloud',
+      'bandcamp',
+      'native',
+    ]);
+
+    for (const player of players) {
+      player.dispose();
+    }
+  });
 });
