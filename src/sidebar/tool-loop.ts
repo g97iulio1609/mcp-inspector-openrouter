@@ -314,7 +314,7 @@ export async function executeToolLoop(params: ToolLoopParams): Promise<ToolLoopR
 
       const updatedConfig = getConfig(pageContext);
       trace.push({ userPrompt: { message: toolResponses, config: updatedConfig } });
-      chat.trimHistory(20);
+      chat.trimHistory();
       currentResult = await chat.sendMessage({
         message: toolResponses,
         config: updatedConfig,

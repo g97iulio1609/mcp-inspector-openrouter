@@ -276,7 +276,7 @@ export class AIChatController {
         ]
       : message;
 
-    chat.trimHistory(20);
+    chat.trimHistory();
 
     const initialResult = await chat.sendMessage({ message: userMessage, config });
 

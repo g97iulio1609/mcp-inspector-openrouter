@@ -9,6 +9,10 @@ import type {
   FunctionDeclaration,
 } from '../types';
 import type { ChatConfig } from '../services/adapters/openrouter';
+import {
+  OPENROUTER_DEFAULT_MAX_OUTPUT_TOKENS,
+  OPENROUTER_DEFAULT_MAX_INPUT_TOKENS,
+} from '../utils/constants';
 
 // ── Schema template utilities ──
 
@@ -446,5 +450,7 @@ export function buildChatConfig(
   return {
     systemInstruction,
     tools: [{ functionDeclarations }],
+    maxTokens: OPENROUTER_DEFAULT_MAX_OUTPUT_TOKENS,
+    maxInputTokens: OPENROUTER_DEFAULT_MAX_INPUT_TOKENS,
   };
 }

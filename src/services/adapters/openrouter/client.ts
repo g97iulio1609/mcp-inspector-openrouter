@@ -26,9 +26,51 @@ import {
   delay,
   DEFAULT_TEMPERATURE,
   DEFAULT_MAX_TOKENS,
+  DEFAULT_MAX_INPUT_TOKENS,
   MAX_HISTORY_MESSAGES,
 } from './api-client';
 import { parseSSEStream } from './streaming';
+
+const TOKEN_ESTIMATE_CHARS_PER_TOKEN = 4;
+const RETRY_HISTORY_TARGET = 40;
+
+function estimateContentTokens(content: ChatMessage['content']): number {
+  if (typeof content === 'string') {
+    return Math.ceil(content.length / TOKEN_ESTIMATE_CHARS_PER_TOKEN);
+  }
+
+  let chars = 0;
+  for (const part of content) {
+    if (part.type === 'text') {
+      chars += part.text.length;
+    } else if (part.type === 'image_url') {
+      chars += part.image_url.url.length;
+    }
+  }
+
+  return Math.ceil(chars / TOKEN_ESTIMATE_CHARS_PER_TOKEN);
+}
+
+function estimateMessageTokens(message: ChatMessage): number {
+  let tokens = estimateContentTokens(message.content);
+
+  if (message.tool_calls?.length) {
+    for (const toolCall of message.tool_calls) {
+      tokens += Math.ceil(
+        (toolCall.function.name.length + toolCall.function.arguments.length) /
+          TOKEN_ESTIMATE_CHARS_PER_TOKEN,
+      );
+    }
+  }
+
+  if (message.tool_call_id) {
+    tokens += Math.ceil(
+      message.tool_call_id.length / TOKEN_ESTIMATE_CHARS_PER_TOKEN,
+    );
+  }
+
+  return Math.max(tokens, 1);
+}
 
 export class OpenRouterChat {
   private readonly apiKey: string;
@@ -53,6 +95,38 @@ export class OpenRouterChat {
     console.debug(
       `[OpenRouter] Trimmed ${trimmed} messages from history, keeping last ${maxMessages}`,
     );
+  }
+
+  private trimHistoryByInputBudget(maxInputTokens: number): void {
+    const targetBudget = Math.max(1, Math.floor(maxInputTokens));
+    if (this.history.length === 0) return;
+
+    let total = this.history.reduce(
+      (sum, msg) => sum + estimateMessageTokens(msg),
+      0,
+    );
+
+    let removed = 0;
+    while (this.history.length > 1 && total > targetBudget) {
+      const dropped = this.history.shift();
+      if (!dropped) break;
+      total -= estimateMessageTokens(dropped);
+      removed += 1;
+    }
+
+    if (removed > 0) {
+      console.debug(
+        `[OpenRouter] Trimmed ${removed} messages to respect input budget ~${targetBudget} tokens`,
+      );
+    }
+  }
+
+  private resolveMaxInputTokens(config: ChatSendParams['config']): number {
+    const raw = config?.maxInputTokens;
+    if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) {
+      return DEFAULT_MAX_INPUT_TOKENS;
+    }
+    return Math.max(1, Math.floor(raw));
   }
 
   /** Append user or tool messages to history based on message type */
@@ -112,9 +186,11 @@ export class OpenRouterChat {
 
   async sendMessage(params: ChatSendParams): Promise<ChatSendResponse> {
     const { message, config } = params;
+    const maxInputTokens = this.resolveMaxInputTokens(config);
 
     this.appendIncomingMessages(message);
     this.trimHistory(MAX_HISTORY_MESSAGES);
+    this.trimHistoryByInputBudget(maxInputTokens);
 
     const body = this.buildRequestBody(config);
 
@@ -207,10 +283,11 @@ export class OpenRouterChat {
     // Retry once if finish_reason is 'length' with empty content and no function calls
     if (finishReason === 'length' && !textContent && (!functionCalls || functionCalls.length === 0)) {
       console.warn('[OpenRouter] Empty content with finish_reason=length, retrying with trimmed history and increased max_tokens.');
-      this.trimHistory(10);
+      this.trimHistory(Math.min(RETRY_HISTORY_TARGET, MAX_HISTORY_MESSAGES));
+      this.trimHistoryByInputBudget(maxInputTokens);
       const retryBody = this.buildRequestBody(config);
       const currentMaxTokens = (retryBody.max_tokens as number) ?? DEFAULT_MAX_TOKENS;
-      retryBody.max_tokens = Math.round(currentMaxTokens * 1.5);
+      retryBody.max_tokens = Math.max(currentMaxTokens, DEFAULT_MAX_TOKENS);
 
       const retryRes = await fetchWithBackoff(OPENROUTER_CHAT_ENDPOINT, {
         method: 'POST',
@@ -266,9 +343,11 @@ export class OpenRouterChat {
     params: ChatSendParams,
   ): AsyncGenerator<StreamChunk> {
     const { message, config } = params;
+    const maxInputTokens = this.resolveMaxInputTokens(config);
 
     this.appendIncomingMessages(message);
     this.trimHistory(MAX_HISTORY_MESSAGES);
+    this.trimHistoryByInputBudget(maxInputTokens);
 
     const body = this.buildRequestBody(config, true);
 

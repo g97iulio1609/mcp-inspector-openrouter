@@ -2,6 +2,9 @@ import type { FunctionDeclaration, Tool, ToolDeclaration } from '../../../types'
 import {
   OPENROUTER_REFERER,
   OPENROUTER_TITLE,
+  OPENROUTER_DEFAULT_MAX_OUTPUT_TOKENS,
+  OPENROUTER_DEFAULT_MAX_INPUT_TOKENS,
+  OPENROUTER_MAX_HISTORY_MESSAGES,
 } from '../../../utils/constants';
 import {
   OpenRouterError,
@@ -14,8 +17,9 @@ import type { OpenRouterErrorBody } from './types';
 // ── Constants ──
 
 export const DEFAULT_TEMPERATURE = 0.7;
-export const DEFAULT_MAX_TOKENS = 16384;
-export const MAX_HISTORY_MESSAGES = 30;
+export const DEFAULT_MAX_TOKENS = OPENROUTER_DEFAULT_MAX_OUTPUT_TOKENS;
+export const DEFAULT_MAX_INPUT_TOKENS = OPENROUTER_DEFAULT_MAX_INPUT_TOKENS;
+export const MAX_HISTORY_MESSAGES = OPENROUTER_MAX_HISTORY_MESSAGES;
 const RATE_LIMIT_BASE_DELAY_MS = 1000;
 const RATE_LIMIT_MAX_RETRIES = 3;
 

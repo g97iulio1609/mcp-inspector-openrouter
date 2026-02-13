@@ -185,6 +185,32 @@ describe('OpenRouterChat', () => {
     expect(chat.history).toHaveLength(2); // user + assistant
     expect(chat.history[0].role).toBe('user');
     expect(chat.history[1].role).toBe('assistant');
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
+    expect(body.max_tokens).toBe(65000);
+  });
+
+  it('trims history to fit configured input token budget', async () => {
+    const apiResp: AIResponse = {
+      choices: [{ message: { role: 'assistant', content: 'ok' } }],
+    };
+    mockFetch.mockResolvedValueOnce(jsonResponse(apiResp));
+
+    chat.history = [
+      { role: 'user', content: 'a'.repeat(1200) },
+      { role: 'assistant', content: 'b'.repeat(1200) },
+      { role: 'user', content: 'keep me' },
+    ];
+
+    await chat.sendMessage({
+      message: 'final',
+      config: { maxInputTokens: 20 },
+    });
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
+    const sentMessages = body.messages as Array<{ content: string }>;
+    expect(sentMessages.length).toBeLessThanOrEqual(2);
+    expect(sentMessages.at(-1)?.content).toBe('final');
   });
 
   it('retries on empty response', async () => {

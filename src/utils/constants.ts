@@ -86,6 +86,15 @@ export const DEFAULT_MODEL = 'google/gemini-2.0-flash-001';
 /** Default model for AI classifier (lightweight) */
 export const DEFAULT_CLASSIFIER_MODEL = 'google/gemini-2.0-flash-lite-001';
 
+/** Default max output tokens for chat completions */
+export const OPENROUTER_DEFAULT_MAX_OUTPUT_TOKENS = 65_000;
+
+/** Internal input budget cap used for local history trimming */
+export const OPENROUTER_DEFAULT_MAX_INPUT_TOKENS = 1_000_000;
+
+/** Max retained messages in chat history before additional input-budget trimming */
+export const OPENROUTER_MAX_HISTORY_MESSAGES = 200;
+
 // ── Storage Keys ──
 
 /** localStorage key for conversation data */

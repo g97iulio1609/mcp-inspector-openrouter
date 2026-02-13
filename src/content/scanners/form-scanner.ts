@@ -6,6 +6,29 @@
 import type { Tool, ToolParameter } from '../../types';
 import { BaseScanner } from './base-scanner';
 
+function resolveFormActionPath(form: HTMLFormElement): string {
+  const attrAction = form.getAttribute('action')?.trim();
+  if (attrAction) {
+    try {
+      const url = new URL(attrAction, location.href);
+      const fromPath = url.pathname.split('/').pop()?.trim();
+      if (fromPath) return fromPath;
+      return url.hostname || 'form';
+    } catch {
+      const direct = attrAction.split('/').pop()?.trim();
+      if (direct) return direct;
+    }
+  }
+
+  const actionValue: unknown = form.action;
+  if (typeof actionValue === 'string' && actionValue.trim().length > 0) {
+    const direct = actionValue.split('/').pop()?.trim();
+    if (direct) return direct;
+  }
+
+  return 'form';
+}
+
 export class FormScanner extends BaseScanner {
   readonly category = 'form' as const;
 
@@ -14,11 +37,12 @@ export class FormScanner extends BaseScanner {
     const forms = (root as ParentNode).querySelectorAll('form:not([toolname])');
 
     for (const form of forms) {
+      const htmlForm = form as HTMLFormElement;
       const name =
         this.slugify(
           form.getAttribute('aria-label') ||
             form.id ||
-            (form as HTMLFormElement).action?.split('/').pop() ||
+            resolveFormActionPath(htmlForm) ||
             'form',
         ) || 'unnamed-form';
 

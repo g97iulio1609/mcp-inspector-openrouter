@@ -14,6 +14,7 @@ export interface ChatConfig {
   ];
   readonly temperature?: number;
   readonly maxTokens?: number;
+  readonly maxInputTokens?: number;
 }
 
 export interface ChatSendParams {
