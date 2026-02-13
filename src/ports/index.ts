@@ -10,6 +10,7 @@ export type { ISubagentPort } from './subagent.port';
 export type { IContextPort } from './context.port';
 export type { IContextManagerPort } from './context-manager.port';
 export type { IApprovalGatePort, ApprovalDecision, ApprovalRequest } from './approval-gate.port';
+export type { ITabSessionPort, TabContext } from './tab-session.port';
 
 // Shared types
 export type {
