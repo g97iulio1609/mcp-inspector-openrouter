@@ -110,6 +110,127 @@ export class FormScanner extends BaseScanner {
         ),
       );
     }
+
+    // ── Second pass: standalone (orphan) input fields not inside any <form> ──
+
+    const orphanSelector =
+      'input:not([type="hidden"]):not([type="submit"]):not([type="button"]), select, textarea';
+    const allInputs = (root as ParentNode).querySelectorAll(orphanSelector);
+
+    /** Track radio groups already emitted so we collapse them into one tool */
+    const emittedRadioGroups = new Set<string>();
+    /** Track emitted slugs to avoid duplicate tool names */
+    const emittedSlugs = new Set<string>();
+
+    for (const el of allInputs) {
+      if (tools.length >= this.maxTools) break;
+      if (el.closest('form')) continue;
+      if (this.isClaimed(el)) continue;
+      if (!this.isVisible(el)) continue;
+
+      const inputEl = el as HTMLInputElement;
+      const inputType = inputEl.type?.toLowerCase() ?? '';
+
+      // Radio groups — collapse into a single enum tool per group name
+      if (inputType === 'radio') {
+        const groupName = inputEl.name || 'radio';
+        if (emittedRadioGroups.has(groupName)) continue;
+        emittedRadioGroups.add(groupName);
+
+        // Query all radios then filter by name in JS to avoid CSS selector injection
+        const allRadios = (root as ParentNode).querySelectorAll('input[type="radio"]');
+        const vals: string[] = [];
+        for (const r of allRadios) {
+          if ((r as HTMLInputElement).name === groupName && !(r as HTMLElement).closest('form')) {
+            vals.push((r as HTMLInputElement).value);
+            this.claim(r as Element);
+          }
+        }
+
+        if (vals.length === 0) continue;
+
+        const radioLabel = this.getLabel(el) || groupName;
+        const radioSlug = this.slugify(groupName) || 'field';
+
+        if (emittedSlugs.has(radioSlug)) continue;
+        emittedSlugs.add(radioSlug);
+
+        tools.push(
+          this.createTool(
+            `form.fill-${radioSlug}`,
+            `Fill field: ${radioLabel}`,
+            el,
+            this.makeInputSchema([{ name: 'value', type: 'string', enum: vals }]),
+            this.computeConfidence({
+              hasAria: !!el.getAttribute('aria-label'),
+              hasLabel: !!radioLabel,
+              hasName: !!inputEl.name,
+              isVisible: true,
+              hasRole: false,
+              hasSemanticTag: true,
+            }),
+            {
+              title: `Fill: ${radioLabel}`,
+              annotations: this.makeAnnotations({ destructive: false, idempotent: true }),
+            },
+          ),
+        );
+        continue;
+      }
+
+      const fieldName =
+        inputEl.name || inputEl.id || this.slugify(this.getLabel(el)) || 'field';
+      const orphanLabel = this.getLabel(el) || fieldName;
+      let slug = this.slugify(fieldName) || 'field';
+
+      // Deduplicate slug names
+      if (emittedSlugs.has(slug)) {
+        let suffix = 2;
+        while (emittedSlugs.has(`${slug}-${suffix}`)) suffix++;
+        slug = `${slug}-${suffix}`;
+      }
+      emittedSlugs.add(slug);
+
+      let field: ToolParameter;
+
+      if (el.tagName === 'SELECT') {
+        const opts = [...(el as HTMLSelectElement).options]
+          .map(o => o.value)
+          .filter(Boolean);
+        field = { name: 'value', type: 'string', enum: opts };
+      } else if (inputType === 'checkbox') {
+        field = { name: 'value', type: 'boolean' };
+      } else {
+        field = {
+          name: 'value',
+          type: inputType === 'number' ? 'number' : 'string',
+        };
+      }
+
+      this.claim(el);
+
+      tools.push(
+        this.createTool(
+          `form.fill-${slug}`,
+          `Fill field: ${orphanLabel}`,
+          el,
+          this.makeInputSchema([field]),
+          this.computeConfidence({
+            hasAria: !!el.getAttribute('aria-label'),
+            hasLabel: !!orphanLabel,
+            hasName: !!inputEl.name || !!inputEl.id,
+            isVisible: true,
+            hasRole: false,
+            hasSemanticTag: true,
+          }),
+          {
+            title: `Fill: ${orphanLabel}`,
+            annotations: this.makeAnnotations({ destructive: false, idempotent: true }),
+          },
+        ),
+      );
+    }
+
     return tools;
   }
 }
