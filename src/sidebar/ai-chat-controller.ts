@@ -301,9 +301,10 @@ export class AIChatController {
     // Determine target tab for tool execution
     const targetTabId = this.activeMentions.length > 0 ? this.activeMentions[0].tabId : tab.id;
 
-    // Check orchestrator mode feature flag
+    // Orchestrator is the default execution path.
+    // Users can opt-out by setting the storage key to `false`.
     const orchestratorSettings = await chrome.storage.local.get([STORAGE_KEY_ORCHESTRATOR_MODE]);
-    const useOrchestrator = !!orchestratorSettings[STORAGE_KEY_ORCHESTRATOR_MODE];
+    const useOrchestrator = orchestratorSettings[STORAGE_KEY_ORCHESTRATOR_MODE] !== false;
 
     if (useOrchestrator) {
       await this.runOrchestrator(
