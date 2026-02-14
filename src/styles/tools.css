@@ -238,8 +238,8 @@ tbody.prettify pre { white-space: pre-wrap; }
   letter-spacing: 0.03em;
 }
 
-/* ── Dark mode ── */
-@media (prefers-color-scheme: dark) {
+/* ── Dark theme ── */
+[data-theme="dark"] {
   tr:nth-child(even) { background-color: rgba(255,255,255,0.03); }
 
   #toolResults {

@@ -178,8 +178,8 @@
   to { transform: rotate(360deg); }
 }
 
-/* ── Dark mode ── */
-@media (prefers-color-scheme: dark) {
+/* ── Dark theme ── */
+[data-theme="dark"] {
   .plan-header {
     background: linear-gradient(135deg, #2563eb, #3b82f6);
   }

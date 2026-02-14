@@ -297,33 +297,8 @@ button:hover {
   margin-top: 15px;
 }
 
-/* ── Dark mode ── */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --primary: #3b82f6;
-    --primary-hover: #60a5fa;
-    --primary-soft: rgba(59, 130, 246, 0.12);
-    --primary-glow: rgba(59, 130, 246, 0.2);
-    --bg: #0f0f0f;
-    --bg-card: #1a1a1a;
-    --bg-elevated: #262626;
-    --text: #e5e5e5;
-    --text-secondary: #9ca3af;
-    --text-muted: #6b7280;
-    --border: #333;
-    --border-light: #2a2a2a;
-    --success: #34d399;
-    --success-soft: rgba(52, 211, 153, 0.12);
-    --error: #f87171;
-    --error-soft: rgba(248, 113, 113, 0.12);
-    --warning: #fbbf24;
-    --warning-soft: rgba(251, 191, 36, 0.12);
-    --shadow-xs: 0 1px 2px rgba(0,0,0,0.2);
-    --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
-    --shadow-md: 0 4px 12px rgba(0,0,0,0.4), 0 1px 3px rgba(0,0,0,0.3);
-    --shadow-lg: 0 8px 24px rgba(0,0,0,0.5), 0 2px 6px rgba(0,0,0,0.3);
-  }
-
+/* ── Dark theme (component overrides — tokens handled by theme-provider) ── */
+[data-theme="dark"] {
   select {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23a3a3a3'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
   }
