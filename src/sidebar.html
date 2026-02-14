@@ -68,19 +68,7 @@
 
   <!-- ═══ Chat tab ═══ -->
   <div class="tab-panel" id="tab-chat">
-    <!-- API key hint (shown when not configured) -->
-    <div id="apiKeyHint" class="api-key-hint" style="display:none">
-      ⚠️ API key not configured.
-      <a href="#" id="openOptionsLink">Open extension settings</a> to set it up.
-    </div>
-
-    <!-- Conversation selector -->
-    <div class="chat-header">
-      <select id="conversationSelect"></select>
-      <button id="newChatBtn" class="icon-btn" title="New chat">＋</button>
-      <button id="deleteChatBtn" class="icon-btn danger" title="Delete conversation">🗑</button>
-      <button id="plan-toggle" class="plan-mode-toggle icon-btn" title="Toggle plan mode"><span id="icon-plan"></span> Plan</button>
-    </div>
+    <chat-header id="chatHeader"></chat-header>
 
     <!-- Chat bubbles -->
     <chat-container id="chatContainer"></chat-container>

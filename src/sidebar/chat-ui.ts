@@ -3,7 +3,7 @@
  * Delegates rendering to <chat-bubble> and <chat-container> Lit components.
  */
 
-import type { Message, ConversationSummary, MessageRole } from '../types';
+import type { Message, MessageRole } from '../types';
 import type { ChatBubble as ChatBubbleElement } from '../components/chat-bubble';
 import type { ChatContainer as ChatContainerElement } from '../components/chat-container';
 
@@ -108,28 +108,4 @@ export function renderConversationWithActions(
   }
 
   scrollToBottom(container);
-}
-
-/** Populate the conversation selector dropdown */
-export function populateSelector(
-  select: HTMLSelectElement,
-  conversations: readonly ConversationSummary[],
-  activeId: string | null,
-): void {
-  select.innerHTML = '';
-  if (conversations.length === 0) {
-    const opt = document.createElement('option');
-    opt.textContent = 'No conversations';
-    opt.disabled = true;
-    opt.selected = true;
-    select.appendChild(opt);
-    return;
-  }
-  for (const conv of conversations) {
-    const opt = document.createElement('option');
-    opt.value = conv.id;
-    opt.textContent = conv.title;
-    if (conv.id === activeId) opt.selected = true;
-    select.appendChild(opt);
-  }
 }

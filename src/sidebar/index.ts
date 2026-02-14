@@ -2,8 +2,10 @@
 
 import '../components/theme-provider';
 import '../components/chat-container';
+import '../components/chat-header';
+import type { ChatHeader } from '../components/chat-header';
 import type { CleanTool } from '../types';
-import { STORAGE_KEY_LOCK_MODE } from '../utils/constants';
+import { STORAGE_KEY_LOCK_MODE, STORAGE_KEY_PLAN_MODE } from '../utils/constants';
 import { ICONS } from './icons';
 import * as Store from './chat-store';
 import { PlanManager } from './plan-manager';
@@ -24,9 +26,8 @@ const executeBtn = $<HTMLButtonElement>('executeBtn');
 const toolResults = $<HTMLPreElement>('toolResults');
 const lockToggle = $<HTMLInputElement>('lockToggle');
 const lockLabel = $<HTMLSpanElement>('lockLabel');
-const conversationSelect = $<HTMLSelectElement>('conversationSelect');
 const chatContainer = $<HTMLElement>('chatContainer');
-const planToggle = $<HTMLButtonElement>('plan-toggle');
+const chatHeader = $<ChatHeader>('chatHeader');
 
 // Tab switching
 const tabBtns = document.querySelectorAll<HTMLButtonElement>('.tab-btn');
@@ -38,23 +39,25 @@ tabBtns.forEach((btn) => {
     tabPanels.forEach((p) => p.classList.toggle('active', p.id === `tab-${target}`));
   });
 });
-$<HTMLAnchorElement>('openOptionsLink').onclick = (e: Event): void => {
-  e.preventDefault();
-  chrome.runtime.openOptionsPage();
-};
 
-// Set SVG icons for tab buttons and plan toggle
+// Set SVG icons for tab buttons
 const iconTools = document.getElementById('icon-tools');
 const iconChat = document.getElementById('icon-chat');
-const iconPlan = document.getElementById('icon-plan');
 if (iconTools) iconTools.innerHTML = ICONS.wrench;
 if (iconChat) iconChat.innerHTML = ICONS.chat;
-if (iconPlan) iconPlan.innerHTML = ICONS.clipboard;
 
 // State
 let currentTools: CleanTool[] = [];
-const planManager = new PlanManager(planToggle, chatContainer);
-const convCtrl = new ConversationController(chatContainer, conversationSelect, {
+
+// Consolidated plan mode initialization — single storage read
+const planManager = new PlanManager(chatContainer);
+chrome.storage.local.get([STORAGE_KEY_PLAN_MODE]).then((result) => {
+  const enabled = result[STORAGE_KEY_PLAN_MODE] === true;
+  planManager.planModeEnabled = enabled;
+  chatHeader.planActive = enabled;
+});
+
+const convCtrl = new ConversationController(chatContainer, chatHeader, {
   currentSite: '', currentConvId: null, chat: undefined, trace: [],
 });
 
@@ -91,10 +94,20 @@ lockToggle.onchange = async (): Promise<void> => {
   } catch { /* tab may not be ready */ }
 };
 
-// Conversation wiring
-$<HTMLButtonElement>('newChatBtn').onclick = (): void => convCtrl.createNewConversation();
-$<HTMLButtonElement>('deleteChatBtn').onclick = (): void => convCtrl.deleteConversation();
-conversationSelect.onchange = (): void => convCtrl.onSelectChange();
+// Conversation wiring via <chat-header> events
+chatHeader.addEventListener('conversation-change', ((e: CustomEvent) => {
+  const convId = e.detail.conversationId;
+  if (convId && convId !== convCtrl.state.currentConvId) {
+    convCtrl.switchToConversation(convId);
+  }
+}) as EventListener);
+chatHeader.addEventListener('new-conversation', () => convCtrl.createNewConversation());
+chatHeader.addEventListener('delete-conversation', () => convCtrl.deleteConversation());
+chatHeader.addEventListener('toggle-plan', ((e: CustomEvent) => {
+  planManager.planModeEnabled = e.detail.active;
+  chrome.storage.local.set({ [STORAGE_KEY_PLAN_MODE]: planManager.planModeEnabled });
+}) as EventListener);
+chatHeader.addEventListener('open-options', () => chrome.runtime.openOptionsPage());
 
 // AI chat controller
 const securityDialogRefs: SecurityDialogRefs = {
@@ -109,7 +122,7 @@ initSecurityDialog(securityDialogRefs);
 const aiChat = new AIChatController({
   userPromptText: $<HTMLTextAreaElement>('userPromptText'),
   promptBtn: $<HTMLButtonElement>('promptBtn'),
-  apiKeyHint: $<HTMLDivElement>('apiKeyHint'),
+  chatHeader,
   getCurrentTab,
   getCurrentTools: (): CleanTool[] => currentTools,
   setCurrentTools: (t): void => { currentTools = t; },
