@@ -26,7 +26,7 @@ import { AgentOrchestrator } from '../adapters/agent-orchestrator';
 import { ChromeToolAdapter } from '../adapters/chrome-tool-adapter';
 import { ApprovalGateAdapter } from '../adapters/approval-gate-adapter';
 import { PlanningAdapter } from '../adapters/planning-adapter';
-import { TabSessionAdapter } from '../adapters/tab-session-adapter';
+import type { ITabSessionPort } from '../ports/tab-session.port';
 import { getSecurityTier } from '../content/merge';
 import { showApprovalDialog } from './security-dialog';
 import type { SecurityDialog } from '../components/security-dialog';
@@ -45,6 +45,7 @@ export interface AIChatDeps {
   readonly convCtrl: ConversationController;
   readonly planManager: PlanManager;
   readonly securityDialogEl: SecurityDialog;
+  readonly tabSession: ITabSessionPort;
 }
 
 export class AIChatController {
@@ -347,8 +348,8 @@ export class AIChatController {
   ): Promise<void> {
     const chromeToolPort = new ChromeToolAdapter();
     const planningAdapter = new PlanningAdapter(planManager);
-    const tabSession = new TabSessionAdapter();
-    tabSession.startSession();
+    const tabSession = this.deps.tabSession;
+    if (!tabSession.getSessionId()) tabSession.startSession();
 
     // Build tool name → security tier lookup from current tools
     const toolMap = new Map(allTools.map((t) => [t.name, t]));
