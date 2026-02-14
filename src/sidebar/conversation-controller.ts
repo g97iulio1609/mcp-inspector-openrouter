@@ -4,6 +4,7 @@
 
 import type { MessageRole, Message } from '../types';
 import type { OpenRouterChat } from '../services/adapters';
+import type { ChatHeader } from '../components/chat-header';
 import * as Store from './chat-store';
 import * as ChatUI from './chat-ui';
 
@@ -16,23 +17,23 @@ export interface ConversationState {
 
 export class ConversationController {
   private readonly chatContainer: HTMLElement;
-  private readonly conversationSelect: HTMLSelectElement;
+  private readonly chatHeader: ChatHeader;
 
   state: ConversationState;
 
   constructor(
     chatContainer: HTMLElement,
-    conversationSelect: HTMLSelectElement,
+    chatHeader: ChatHeader,
     initialState: ConversationState,
   ) {
     this.chatContainer = chatContainer;
-    this.conversationSelect = conversationSelect;
+    this.chatHeader = chatHeader;
     this.state = initialState;
   }
 
   refreshConversationList(): void {
     const convs = Store.listConversations(this.state.currentSite);
-    ChatUI.populateSelector(this.conversationSelect, convs, this.state.currentConvId);
+    this.chatHeader.setConversations(convs, this.state.currentConvId);
   }
 
   switchToConversation(convId: string): void {
@@ -73,13 +74,6 @@ export class ConversationController {
       this.switchToConversation(convs[0].id);
     } else {
       this.refreshConversationList();
-    }
-  }
-
-  onSelectChange(): void {
-    const selectedId = this.conversationSelect.value;
-    if (selectedId && selectedId !== this.state.currentConvId) {
-      this.switchToConversation(selectedId);
     }
   }
 

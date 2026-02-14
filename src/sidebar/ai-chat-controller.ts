@@ -29,13 +29,14 @@ import { TabSessionAdapter } from '../adapters/tab-session-adapter';
 import { getSecurityTier } from '../content/merge';
 import { showApprovalDialog, type SecurityDialogRefs } from './security-dialog';
 import type { ConversationController } from './conversation-controller';
+import type { ChatHeader } from '../components/chat-header';
 import { createMentionAutocomplete, type MentionAutocomplete, type TabMention } from './tab-mention';
 import { logger } from './debug-logger';
 
 export interface AIChatDeps {
   userPromptText: HTMLTextAreaElement;
   promptBtn: HTMLButtonElement;
-  apiKeyHint: HTMLDivElement;
+  chatHeader: ChatHeader;
   getCurrentTab: () => Promise<chrome.tabs.Tab | undefined>;
   getCurrentTools: () => CleanTool[];
   setCurrentTools: (tools: CleanTool[]) => void;
@@ -82,11 +83,11 @@ export class AIChatController {
     if (savedApiKey) {
       this.genAI = new OpenRouterAdapter({ apiKey: savedApiKey, model: savedModel });
       this.deps.promptBtn.disabled = false;
-      this.deps.apiKeyHint.style.display = 'none';
+      this.deps.chatHeader.setApiKeyHint(false);
     } else {
       this.genAI = undefined;
       this.deps.promptBtn.disabled = true;
-      this.deps.apiKeyHint.style.display = '';
+      this.deps.chatHeader.setApiKeyHint(true);
     }
   }
 

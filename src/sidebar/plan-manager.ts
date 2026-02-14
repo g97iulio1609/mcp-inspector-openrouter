@@ -4,7 +4,7 @@
 
 import type { Plan, PlanStep, ToolResponse } from '../types';
 import { renderPlan, updatePlanStep } from './plan-renderer';
-import { STORAGE_KEY_PLAN_MODE } from '../utils/constants';
+
 
 export interface ActivePlan {
   plan: Plan;
@@ -19,33 +19,10 @@ export class PlanManager {
   private _batchStepIdx: number | null = null;
 
   constructor(
-    private readonly planToggle: HTMLButtonElement | null,
     private readonly chatContainer: HTMLElement,
+    initialPlanMode = false,
   ) {
-    this.initToggle();
-  }
-
-  // ── Initialisation ──
-
-  private initToggle(): void {
-    chrome.storage.local.get([STORAGE_KEY_PLAN_MODE]).then((result) => {
-      this.planModeEnabled = result[STORAGE_KEY_PLAN_MODE] === true;
-      this.updatePlanToggleUI();
-    });
-
-    if (this.planToggle) {
-      this.planToggle.onclick = (): void => {
-        this.planModeEnabled = !this.planModeEnabled;
-        chrome.storage.local.set({ [STORAGE_KEY_PLAN_MODE]: this.planModeEnabled });
-        this.updatePlanToggleUI();
-      };
-    }
-  }
-
-  private updatePlanToggleUI(): void {
-    if (this.planToggle) {
-      this.planToggle.classList.toggle('active', this.planModeEnabled);
-    }
+    this.planModeEnabled = initialPlanMode;
   }
 
   // ── Step tracking (batch-aware) ──
