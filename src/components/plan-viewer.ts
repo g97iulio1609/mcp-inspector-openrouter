@@ -61,7 +61,8 @@ export class PlanViewer extends BaseElement {
 
   private _computeOverallStatus(steps: PlanStep[]): PlanStepStatus {
     const all = this._collectStatuses(steps);
-    if (all.every(s => s === 'done')) return 'done';
+    if (all.length === 0) return 'pending';
+    if (all.every(s => s === 'done' || s === 'skipped')) return 'done';
     if (all.some(s => s === 'in_progress')) return 'in_progress';
     if (all.some(s => s === 'failed')) return 'failed';
     if (all.some(s => s === 'done')) return 'in_progress';

@@ -50,20 +50,20 @@ export class PlanManager {
   markRemainingStepsDone(): void {
     const ap = this.activePlan;
     if (!ap) return;
+    this._markStepsDoneRecursive(ap.plan.steps);
+    ap.plan.status = 'done';
+    ap.element.plan = { ...ap.plan };
+  }
 
-    for (const step of ap.plan.steps) {
+  private _markStepsDoneRecursive(steps: PlanStep[]): void {
+    for (const step of steps) {
       if (step.status === 'pending' || step.status === 'in_progress') {
         step.status = 'done';
       }
       if (step.children) {
-        for (const child of step.children) {
-          if (child.status === 'pending' || child.status === 'in_progress') {
-            child.status = 'done';
-          }
-        }
+        this._markStepsDoneRecursive(step.children);
       }
     }
-    ap.element.plan = { ...ap.plan };
   }
 
   // ── Plan tool handling ──
