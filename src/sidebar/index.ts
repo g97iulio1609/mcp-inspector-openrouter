@@ -1,5 +1,6 @@
 /** Sidebar entry — thin controller wiring up all modules. */
 
+import '../components/theme-provider';
 import type { CleanTool } from '../types';
 import { STORAGE_KEY_LOCK_MODE } from '../utils/constants';
 import { ICONS } from './icons';

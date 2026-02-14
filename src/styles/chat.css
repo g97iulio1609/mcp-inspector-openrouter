@@ -295,8 +295,8 @@
   to { left: 100%; }
 }
 
-/* ── Dark mode ── */
-@media (prefers-color-scheme: dark) {
+/* ── Dark theme ── */
+[data-theme="dark"] {
   .chat-container {
     background: linear-gradient(180deg, var(--bg) 0%, rgba(26,26,26,0.5) 100%);
   }
