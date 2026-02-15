@@ -37,34 +37,26 @@ Clients communicate with the WebMCP server via `CustomEvent` dispatched on `docu
 ```typescript
 document.dispatchEvent(new CustomEvent('wmcp-request', {
   detail: {
-    id: 'req-1',
-    method: 'tools/list',       // or 'tools/call'
-    params: {}                  // method-specific params
+    url: 'https://example.com'   // optional URL context
   }
 }));
 ```
 
 ### Response
 
+The server responds with a `wmcp-response` event. The handler registered via `onRequest(handler)` receives the URL and returns the manifest string:
+
 ```typescript
 document.addEventListener('wmcp-response', (e: CustomEvent) => {
-  const { id, result, error } = e.detail;
-  // id matches the request id
+  const { manifest } = e.detail;   // manifest JSON string
 });
 ```
-
-### Supported Methods
-
-| Method | Params | Description |
-|--------|--------|-------------|
-| `tools/list` | — | Returns all tools in the current manifest |
-| `tools/call` | `{ name, arguments }` | Invokes a tool by name with the given arguments |
 
 ## IndexedDB Persistence
 
 Manifests are persisted to IndexedDB for instant availability on page load:
 
-- **Database**: `wmcp`
+- **Database**: `webmcp-manifest-persistence`
 - **Object store**: `wmcp_manifests`
 - **Key**: site origin (e.g. `https://example.com`)
 - **Value**: full `SiteToolManifest` object

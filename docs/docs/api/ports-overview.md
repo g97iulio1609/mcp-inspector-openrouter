@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # Ports Overview
 
-The hexagonal architecture defines **25+ stable port interfaces** that decouple the domain from infrastructure. Each port is a TypeScript interface in `src/ports/`.
+The hexagonal architecture defines **20+ stable port interfaces** that decouple the domain from infrastructure. Each port is a TypeScript interface in `src/ports/`.
 
 ## Port Summary
 
@@ -22,7 +22,7 @@ The hexagonal architecture defines **25+ stable port interfaces** that decouple 
 | [`IProductivityPort`](./productivity-port) | `productivity.port.ts` | Notion, GitHub, Google Docs, Trello, Slack |
 | [`IToolManifestPort`](./tool-manifest-port) | `tool-manifest.port.ts` | Auto-generated MCP tool manifests |
 | [`IGesturePort`](./gesture-port) | `gesture.port.ts` | Touch gesture simulation |
-| [`IWebMCPServer`](./wmcp-server) | `wmcp-server.ts` | WebMCP manifest injection and event protocol |
+| [`IWmcpServerPort`](./wmcp-server) | `wmcp-server.port.ts` | WebMCP manifest injection and event protocol |
 
 ## Dependency Flow
 

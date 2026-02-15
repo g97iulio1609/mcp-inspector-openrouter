@@ -66,61 +66,63 @@ interface IEcommercePort {
 interface OrderSummary {
   orderId: string;
   date: string;
+  total: string;
   status: string;
-  total: number;
-  currency: string;
 }
 
 interface OrderDetails extends OrderSummary {
   items: CartItem[];
-  shippingAddress: string;
-  paymentMethod: string;
+  shippingAddress?: string;
+  trackingNumber?: string;
 }
 
 interface OrderTracking {
   orderId: string;
-  carrier: string;
-  trackingNumber: string;
+  carrier?: string;
+  trackingNumber?: string;
   status: string;
+  estimatedDelivery?: string;
   events: TrackingEvent[];
 }
 
 interface TrackingEvent {
   date: string;
-  location: string;
   description: string;
+  location?: string;
 }
 
 interface InventoryItem {
   productId: string;
-  name: string;
-  sku: string;
+  productName: string;
+  sku?: string;
   quantity: number;
-  inStock: boolean;
+  status: 'in_stock' | 'low_stock' | 'out_of_stock';
 }
 
 interface ProductCreateData {
-  title: string;
-  description: string;
+  name: string;
+  description?: string;
   price: number;
-  images: string[];
-  variants?: string[];
+  currency?: string;
   sku?: string;
-  inventory?: number;
+  quantity?: number;
+  images?: string[];
+  variants?: { name: string; options: string[] }[];
+  category?: string;
 }
 ```
 
 ## Order Management
 
 - **`getOrders()`** — Returns an array of `OrderSummary` for the logged-in customer's recent orders.
-- **`getOrderDetails(orderId)`** — Returns full `OrderDetails` including line items, shipping address, and payment method.
-- **`trackOrder(orderId)`** — Returns `OrderTracking` with carrier info and a timeline of `TrackingEvent` entries.
+- **`getOrderDetails(orderId)`** — Returns full `OrderDetails` including line items, and optionally shipping address and tracking number.
+- **`trackOrder(orderId)`** — Returns `OrderTracking` with optional carrier info, estimated delivery, and a timeline of `TrackingEvent` entries.
 
 ## Inventory (Admin)
 
 Requires `isAdminPage() === true`. Methods throw if called outside an admin context.
 
-- **`getInventoryStatus()`** — Returns all `InventoryItem` entries. Items with `quantity === 0` have `inStock: false`.
+- **`getInventoryStatus()`** — Returns all `InventoryItem` entries with a `status` of `'in_stock'`, `'low_stock'`, or `'out_of_stock'`.
 - **`updateInventory(productId, quantity)`** — Sets the stock quantity for a product. Pass `quantity = 0` to mark as out-of-stock.
 
 ## Product CRUD (Admin)
@@ -135,12 +137,12 @@ Requires `isAdminPage() === true`. The adapter verifies page context before exec
 
 **`isAdminPage()`** detects admin URLs per platform:
 
-| Platform | Admin URL Pattern |
+| Platform | Admin URL Patterns |
 |----------|-------------------|
-| Shopify | `/admin/` |
-| WooCommerce | `/wp-admin/` |
-| Wix | `manage.wix.com` |
-| Webflow | `webflow.com/design/` |
+| Shopify | `/admin`, `myshopify.com/admin` |
+| WooCommerce | `/wp-admin`, `/wp-admin/…wc` |
+| Wix | `/dashboard`, `manage.wix.com` |
+| Webflow | `/designer`, `webflow.com/design/` |
 
 ## Adapter
 
