@@ -547,11 +547,16 @@ describe('EcommerceAdapter', () => {
     });
 
     it('rejects non-positive quantity', async () => {
-      await expect(adapter.updateInventory('prod-1', 0)).rejects.toThrow('quantity must be a positive integer');
+      await expect(adapter.updateInventory('prod-1', -1)).rejects.toThrow('quantity must be a non-negative integer');
     });
 
     it('rejects negative quantity', async () => {
-      await expect(adapter.updateInventory('prod-1', -5)).rejects.toThrow('quantity must be a positive integer');
+      await expect(adapter.updateInventory('prod-1', -5)).rejects.toThrow('quantity must be a non-negative integer');
+    });
+
+    it('accepts quantity 0 for out-of-stock', async () => {
+      // No rows on page → throws "not found" rather than validation error
+      await expect(adapter.updateInventory('prod-1', 0)).rejects.toThrow('Product "prod-1" not found');
     });
   });
 
@@ -576,6 +581,17 @@ describe('EcommerceAdapter', () => {
   describe('deleteProduct', () => {
     it('rejects empty productId', async () => {
       await expect(adapter.deleteProduct('')).rejects.toThrow('productId must be non-empty');
+    });
+
+    it('rejects when page context shows different product', async () => {
+      const el = document.createElement('span');
+      el.setAttribute('data-product-id', 'other-product');
+      el.textContent = 'other-product';
+      document.body.appendChild(el);
+
+      await expect(adapter.deleteProduct('target-product')).rejects.toThrow(
+        'Page context mismatch: expected product "target-product" but page shows "other-product"',
+      );
     });
   });
 });

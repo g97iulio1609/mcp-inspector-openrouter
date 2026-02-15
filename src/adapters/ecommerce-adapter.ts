@@ -30,6 +30,13 @@ function requirePositiveQuantity(qty: number): void {
   }
 }
 
+/** Validate quantity is a non-negative integer (0 allowed for out-of-stock). */
+function requireNonNegativeQuantity(qty: number): void {
+  if (!Number.isFinite(qty) || qty < 0 || !Number.isInteger(qty)) {
+    throw new Error('quantity must be a non-negative integer');
+  }
+}
+
 /** Validate price is a positive finite number. */
 function requirePositivePrice(price: number): void {
   if (!Number.isFinite(price) || price <= 0) {
@@ -648,7 +655,7 @@ export class EcommerceAdapter implements IEcommercePort {
 
   async updateInventory(productId: string, quantity: number): Promise<void> {
     requireNonEmpty(productId, 'productId');
-    requirePositiveQuantity(quantity);
+    requireNonNegativeQuantity(quantity);
     const platform = this.detectPlatform();
     const rows = document.querySelectorAll<HTMLElement>(
       INVENTORY_ROW_SELECTORS[platform].join(', '),
@@ -735,6 +742,21 @@ export class EcommerceAdapter implements IEcommercePort {
   async deleteProduct(productId: string): Promise<void> {
     requireNonEmpty(productId, 'productId');
     const platform = this.detectPlatform();
+
+    // Verify page context matches the target product
+    const idEl = document.querySelector<HTMLElement>(
+      '[data-product-id], .product-id, input[name="product-id"], input[name="id"]',
+    );
+    const pageProductId = idEl?.textContent?.trim()
+      ?? (idEl as HTMLInputElement | null)?.value
+      ?? idEl?.getAttribute('data-product-id')
+      ?? '';
+    if (pageProductId && pageProductId !== productId) {
+      throw new Error(
+        `Page context mismatch: expected product "${productId}" but page shows "${pageProductId}"`,
+      );
+    }
+
     const btn = queryFirst<HTMLElement>(DELETE_PRODUCT_SELECTORS[platform]);
     if (!btn) throw new Error(`Delete button not found (platform: ${platform})`);
     btn.click();
