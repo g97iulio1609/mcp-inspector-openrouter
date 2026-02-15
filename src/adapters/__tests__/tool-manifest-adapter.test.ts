@@ -482,4 +482,12 @@ describe('ToolManifestAdapter', () => {
       expect(deserialized.tools[0].name).toBe('t');
     });
   });
+
+  describe('malformed input handling', () => {
+    it('handles malformed JSON string inputSchema gracefully', () => {
+      const badTool = tool('bad', { inputSchema: 'not valid json' });
+      const manifest = adapter.updatePage('example.com', 'https://example.com/page', [badTool]);
+      expect(manifest.tools[0].inputSchema).toEqual({ type: 'object', properties: {} });
+    });
+  });
 });

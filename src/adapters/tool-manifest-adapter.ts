@@ -19,9 +19,16 @@ import { urlToPattern, hashTools } from './indexeddb-tool-cache-adapter';
 
 /** Convert a CleanTool to a ManifestTool with a single page pattern. */
 function toManifestTool(tool: CleanTool, pattern: string): ManifestTool {
-  const schema = typeof tool.inputSchema === 'string'
-    ? JSON.parse(tool.inputSchema) as Record<string, unknown>
-    : (tool.inputSchema as Record<string, unknown>);
+  let schema: Record<string, unknown>;
+  if (typeof tool.inputSchema === 'string') {
+    try {
+      schema = JSON.parse(tool.inputSchema) as Record<string, unknown>;
+    } catch {
+      schema = { type: 'object', properties: {} };
+    }
+  } else {
+    schema = (tool.inputSchema as Record<string, unknown>);
+  }
 
   const annotations: Record<string, boolean> | undefined = tool.annotations
     ? { ...tool.annotations }
