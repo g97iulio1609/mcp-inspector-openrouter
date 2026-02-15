@@ -21,7 +21,9 @@ function toSemanticTool(tool: CleanTool): SemanticTool {
   return {
     name: tool.name,
     description: tool.description,
-    inputSchema: tool.inputSchema,
+    inputSchema: typeof tool.inputSchema === 'string'
+      ? tool.inputSchema
+      : { ...tool.inputSchema } as Record<string, unknown>,
     category: tool.category,
     annotations: tool.annotations
       ? { ...tool.annotations }
