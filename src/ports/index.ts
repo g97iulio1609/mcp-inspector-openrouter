@@ -25,6 +25,7 @@ export type {
   ScheduleOptions,
 } from './cron-scheduler.port';
 export type { IInstagramPort, InstagramSection } from './instagram.port';
+export type { IGesturePort, SwipeDirection, ScrollDirection } from './gesture.port';
 export type { IEcommercePort, EcommercePlatform, ProductInfo, CartItem } from './ecommerce.port';
 export type { IProductivityPort, INotionPort, IGitHubPort, ProductivityPlatform } from './productivity.port';
 export type {
