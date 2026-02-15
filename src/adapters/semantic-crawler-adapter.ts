@@ -24,7 +24,8 @@ export function globToRegex(pattern: string): RegExp {
     .replace(/[.+^${}()|[\]\\?]/g, '\\$&')
     .replace(/\*\*/g, '⟨DOUBLESTAR⟩')
     .replace(/\*/g, '[^/]*')
-    .replace(/⟨DOUBLESTAR⟩/g, '.*');
+    .replace(/⟨DOUBLESTAR⟩/g, '.*')
+    .replace(/(\.\*){2,}/g, '.*');
   return new RegExp(`^${escaped}$`);
 }
 
@@ -209,23 +210,24 @@ export class SemanticCrawlerAdapter implements ICrawlerPort {
 
     this.running = true;
     this.abortController = new AbortController();
-    const { signal } = this.abortController;
-
-    const maxPages = target.maxPages ?? DEFAULT_MAX_PAGES;
-    const maxDepth = target.maxDepth ?? DEFAULT_MAX_DEPTH;
-    const include = target.includePatterns ?? [];
-    const exclude = target.excludePatterns ?? [];
-
-    const visited = new Set<string>();
-    const queue: Array<{ url: string; depth: number }> = target.entryPoints.map(
-      (url) => ({ url, depth: 0 }),
-    );
-    const errors: string[] = [];
-    let toolsFound = 0;
-    let pagesScanned = 0;
-    const start = Date.now();
 
     try {
+      const { signal } = this.abortController;
+
+      const maxPages = target.maxPages ?? DEFAULT_MAX_PAGES;
+      const maxDepth = target.maxDepth ?? DEFAULT_MAX_DEPTH;
+      const include = target.includePatterns ?? [];
+      const exclude = target.excludePatterns ?? [];
+
+      const visited = new Set<string>();
+      const queue: Array<{ url: string; depth: number }> = target.entryPoints.map(
+        (url) => ({ url, depth: 0 }),
+      );
+      const errors: string[] = [];
+      let toolsFound = 0;
+      let pagesScanned = 0;
+      const start = Date.now();
+
       while (queue.length > 0 && pagesScanned < maxPages) {
         if (signal.aborted) break;
 
@@ -289,18 +291,18 @@ export class SemanticCrawlerAdapter implements ICrawlerPort {
           );
         }
       }
+
+      return {
+        site: target.site,
+        pagesScanned,
+        toolsDiscovered: toolsFound,
+        duration: Date.now() - start,
+        errors,
+      };
     } finally {
       this.running = false;
       this.abortController = null;
     }
-
-    return {
-      site: target.site,
-      pagesScanned,
-      toolsDiscovered: toolsFound,
-      duration: Date.now() - start,
-      errors,
-    };
   }
 
   cancel(): void {
