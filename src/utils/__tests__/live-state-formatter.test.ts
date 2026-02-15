@@ -7,6 +7,7 @@ import type {
   NavigationLiveState,
   AuthLiveState,
   InteractiveLiveState,
+  VisibilityLiveState,
 } from '../../types/live-state.types';
 
 // ── Fixtures ──
@@ -30,6 +31,11 @@ const EMPTY_NAV: NavigationLiveState = {
   scrollPercent: 0,
 };
 
+const EMPTY_VISIBILITY: VisibilityLiveState = {
+  overlays: [],
+  loadingIndicators: false,
+};
+
 function makeSnapshot(overrides: Partial<LiveStateSnapshot> = {}): LiveStateSnapshot {
   return {
     timestamp: Date.now(),
@@ -38,6 +44,7 @@ function makeSnapshot(overrides: Partial<LiveStateSnapshot> = {}): LiveStateSnap
     navigation: EMPTY_NAV,
     auth: EMPTY_AUTH,
     interactive: EMPTY_INTERACTIVE,
+    visibility: EMPTY_VISIBILITY,
     ...overrides,
   };
 }
@@ -60,6 +67,8 @@ describe('formatLiveStateForPrompt', () => {
         duration: 213,
         volume: 0.8,
         muted: false,
+        fullscreen: false,
+        captions: false,
         playbackRate: 1,
         hasPlaylist: false,
       };
@@ -68,6 +77,7 @@ describe('formatLiveStateForPrompt', () => {
       expect(result).toContain('🎬 Media Players');
       expect(result).toContain('▶️ PLAYING');
       expect(result).toContain('1:23/3:33');
+      expect(result).toContain('(39%)');
       expect(result).toContain('volume 80%');
       expect(result).toContain('"Test Video"');
       expect(result).toContain('(youtube)');
