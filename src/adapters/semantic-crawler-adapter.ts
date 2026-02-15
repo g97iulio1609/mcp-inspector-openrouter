@@ -21,11 +21,10 @@ const DEFAULT_MAX_DEPTH = 3;
 /** Convert a glob-like pattern to a RegExp */
 export function globToRegex(pattern: string): RegExp {
   const escaped = pattern
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/[.+^${}()|[\]\\?]/g, '\\$&')
     .replace(/\*\*/g, '⟨DOUBLESTAR⟩')
     .replace(/\*/g, '[^/]*')
-    .replace(/⟨DOUBLESTAR⟩/g, '.*')
-    .replace(/\?/g, '.');
+    .replace(/⟨DOUBLESTAR⟩/g, '.*');
   return new RegExp(`^${escaped}$`);
 }
 
@@ -223,14 +222,19 @@ export class SemanticCrawlerAdapter implements ICrawlerPort {
     );
     const errors: string[] = [];
     let toolsFound = 0;
+    let pagesScanned = 0;
     const start = Date.now();
 
     try {
-      while (queue.length > 0 && visited.size < maxPages) {
+      while (queue.length > 0 && pagesScanned < maxPages) {
         if (signal.aborted) break;
 
         const item = queue.shift()!;
         if (visited.has(item.url)) continue;
+
+        // Mark as visited early to prevent re-enqueuing
+        visited.add(item.url);
+
         if (item.depth > maxDepth) continue;
 
         // Apply include/exclude filters
@@ -241,7 +245,7 @@ export class SemanticCrawlerAdapter implements ICrawlerPort {
           continue;
         }
 
-        visited.add(item.url);
+        pagesScanned++;
 
         try {
           const response = await fetch(item.url, { signal });
@@ -261,15 +265,15 @@ export class SemanticCrawlerAdapter implements ICrawlerPort {
           if (item.depth < maxDepth) {
             const links = extractInternalLinks(html, item.url);
             for (const link of links) {
-              if (!visited.has(link) && visited.size + queue.length < maxPages) {
+              if (!visited.has(link) && pagesScanned + queue.length < maxPages) {
                 queue.push({ url: link, depth: item.depth + 1 });
               }
             }
           }
 
           onProgress?.({
-            pagesScanned: visited.size,
-            pagesTotal: Math.min(visited.size + queue.length, maxPages),
+            pagesScanned,
+            pagesTotal: Math.min(pagesScanned + queue.length, maxPages),
             currentUrl: item.url,
             toolsFound,
             errors: errors.length,
@@ -288,7 +292,7 @@ export class SemanticCrawlerAdapter implements ICrawlerPort {
 
     return {
       site: target.site,
-      pagesScanned: visited.size,
+      pagesScanned,
       toolsDiscovered: toolsFound,
       duration: Date.now() - start,
       errors,
