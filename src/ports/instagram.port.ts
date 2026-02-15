@@ -26,6 +26,18 @@ export interface IInstagramPort {
   commentOnReel(text: string): Promise<void>;
   nextReel(): Promise<void>;
   shareReel(username: string): Promise<void>;
+  swipeToNextReel(): Promise<void>;
+  swipeToPreviousReel(): Promise<void>;
+  scrollReels(count?: number): Promise<void>;
+
+  // Stories (gesture-based)
+  swipeNextStory(): Promise<void>;
+  swipePreviousStory(): Promise<void>;
+
+  // Comments
+  openCommentComposer(): Promise<void>;
+  replyToComment(text: string): Promise<void>;
+  loadMoreComments(): Promise<void>;
 
   // DM
   sendDM(username: string, message: string): Promise<void>;

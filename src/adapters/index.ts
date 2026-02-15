@@ -21,6 +21,7 @@ export { BackgroundTaskAdapter } from './background-task-adapter';
 export { CronSchedulerAdapter } from './cron-scheduler-adapter';
 export { IndexedDBToolCacheAdapter, urlToPattern, extractSite, hashTools } from './indexeddb-tool-cache-adapter';
 export { InstagramAdapter, isInstagram } from './instagram-adapter';
+export { GestureAdapter } from './gesture-adapter';
 export { EcommerceAdapter, requireNonEmpty } from './ecommerce-adapter';
 export { SemanticCrawlerAdapter, extractToolsFromHTML, extractInternalLinks, matchesPatterns, globToRegex } from './semantic-crawler-adapter';
 export { NotionAdapter } from './notion-adapter';

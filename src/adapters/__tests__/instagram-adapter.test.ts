@@ -324,4 +324,118 @@ describe('InstagramAdapter', () => {
   it('viewStory throws on empty username', async () => {
     await expect(adapter.viewStory('')).rejects.toThrow(/non-empty/);
   });
+
+  // ── Reels (gesture-based): swipeToNextReel ──
+
+  it('swipeToNextReel dispatches a swipe-up gesture', async () => {
+    const main = addElement('div', { role: 'main' });
+    const events: string[] = [];
+    main.addEventListener('touchstart', () => events.push('touchstart'));
+    main.addEventListener('touchend', () => events.push('touchend'));
+    await adapter.swipeToNextReel();
+    expect(events).toContain('touchstart');
+    expect(events).toContain('touchend');
+  });
+
+  it('swipeToNextReel falls back to body when no [role="main"]', async () => {
+    const events: string[] = [];
+    document.body.addEventListener('touchstart', () => events.push('touchstart'));
+    await adapter.swipeToNextReel();
+    expect(events).toContain('touchstart');
+  });
+
+  // ── Reels (gesture-based): swipeToPreviousReel ──
+
+  it('swipeToPreviousReel dispatches a swipe-down gesture', async () => {
+    const main = addElement('div', { role: 'main' });
+    const events: string[] = [];
+    main.addEventListener('touchstart', () => events.push('touchstart'));
+    main.addEventListener('touchend', () => events.push('touchend'));
+    await adapter.swipeToPreviousReel();
+    expect(events).toContain('touchstart');
+    expect(events).toContain('touchend');
+  });
+
+  // ── Reels (gesture-based): scrollReels ──
+
+  it('scrollReels swipes up N times', async () => {
+    addElement('div', { role: 'main' });
+    let count = 0;
+    document.body.addEventListener('touchend', () => count++, true);
+    await adapter.scrollReels(3);
+    expect(count).toBe(3);
+  });
+
+  // ── Stories (gesture-based): swipeNextStory ──
+
+  it('swipeNextStory dispatches a swipe-left gesture', async () => {
+    const dialog = addElement('div', { role: 'dialog' });
+    let startX = 0;
+    let endX = 0;
+    dialog.addEventListener('touchstart', (e: TouchEvent) => { startX = e.changedTouches[0].clientX; });
+    dialog.addEventListener('touchend', (e: TouchEvent) => { endX = e.changedTouches[0].clientX; });
+    await adapter.swipeNextStory();
+    expect(endX).toBeLessThan(startX);
+  });
+
+  // ── Stories (gesture-based): swipePreviousStory ──
+
+  it('swipePreviousStory dispatches a swipe-right gesture', async () => {
+    const dialog = addElement('div', { role: 'dialog' });
+    let startX = 0;
+    let endX = 0;
+    dialog.addEventListener('touchstart', (e: TouchEvent) => { startX = e.changedTouches[0].clientX; });
+    dialog.addEventListener('touchend', (e: TouchEvent) => { endX = e.changedTouches[0].clientX; });
+    await adapter.swipePreviousStory();
+    expect(endX).toBeGreaterThan(startX);
+  });
+
+  // ── Comments: openCommentComposer ──
+
+  it('openCommentComposer clicks the comment button', async () => {
+    const btn = addElement('span', { 'aria-label': 'Comment' });
+    const spy = vi.spyOn(btn, 'click');
+    await adapter.openCommentComposer();
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it('openCommentComposer throws if not found', async () => {
+    await expect(adapter.openCommentComposer()).rejects.toThrow(/Instagram element not found.*comment composer/i);
+  });
+
+  // ── Comments: replyToComment ──
+
+  it('replyToComment clicks reply, fills text, and submits', async () => {
+    const replyBtn = addElement('button', { 'aria-label': 'Reply' });
+    const textarea = addElement('textarea', { 'aria-label': 'Add a comment' }) as HTMLTextAreaElement;
+    const submitBtn = addElement('button', { type: 'submit' });
+    const clickSpy = vi.spyOn(submitBtn, 'click');
+
+    await adapter.replyToComment('nice!');
+    expect(textarea.value).toBe('nice!');
+    expect(clickSpy).toHaveBeenCalled();
+  });
+
+  // ── Comments: loadMoreComments ──
+
+  it('loadMoreComments clicks load more button', async () => {
+    const btn = addElement('button', { 'aria-label': 'Load more comments' });
+    const spy = vi.spyOn(btn, 'click');
+    await adapter.loadMoreComments();
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it('loadMoreComments scrolls comment container as fallback', async () => {
+    const dialog = addElement('div', { role: 'dialog' });
+    const ul = document.createElement('ul');
+    dialog.appendChild(ul);
+    Object.defineProperty(ul, 'scrollTop', { value: 0, writable: true, configurable: true });
+
+    await adapter.loadMoreComments();
+    expect(ul.scrollTop).toBe(500);
+  });
+
+  it('loadMoreComments throws if nothing is found', async () => {
+    await expect(adapter.loadMoreComments()).rejects.toThrow(/Instagram element not found.*load more comments/i);
+  });
 });

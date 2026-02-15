@@ -4,6 +4,7 @@
  */
 
 import type { IInstagramPort, InstagramSection } from '../ports/instagram.port';
+import { GestureAdapter } from './gesture-adapter';
 
 /** Check whether the current page is Instagram */
 export function isInstagram(): boolean {
@@ -57,6 +58,8 @@ function requireUsername(username: string): string {
 }
 
 export class InstagramAdapter implements IInstagramPort {
+  private readonly gesture = new GestureAdapter();
+
   // ── Stories ──
 
   async viewStory(username: string): Promise<void> {
@@ -205,6 +208,82 @@ export class InstagramAdapter implements IInstagramPort {
     );
     input.focus();
     setReactInputValue(input, username);
+  }
+
+  // ── Reels (gesture-based) ──
+
+  async swipeToNextReel(): Promise<void> {
+    const container = document.querySelector<HTMLElement>('[role="main"]') ?? document.body;
+    await this.gesture.swipe('up', container);
+  }
+
+  async swipeToPreviousReel(): Promise<void> {
+    const container = document.querySelector<HTMLElement>('[role="main"]') ?? document.body;
+    await this.gesture.swipe('down', container);
+  }
+
+  async scrollReels(count = 1): Promise<void> {
+    for (let i = 0; i < count; i++) {
+      await this.swipeToNextReel();
+      await sleep(300);
+    }
+  }
+
+  // ── Stories (gesture-based) ──
+
+  async swipeNextStory(): Promise<void> {
+    const container = document.querySelector<HTMLElement>('[role="dialog"]') ?? document.body;
+    await this.gesture.swipe('left', container);
+  }
+
+  async swipePreviousStory(): Promise<void> {
+    const container = document.querySelector<HTMLElement>('[role="dialog"]') ?? document.body;
+    await this.gesture.swipe('right', container);
+  }
+
+  // ── Comments ──
+
+  async openCommentComposer(): Promise<void> {
+    clickElement(
+      ['[aria-label*="Comment" i]', 'svg[aria-label*="Comment" i]'],
+      'comment composer button',
+    );
+  }
+
+  async replyToComment(text: string): Promise<void> {
+    clickElement(
+      ['button[aria-label*="Reply" i]', '[role="button"][aria-label*="Reply" i]', 'span[role="button"]'],
+      'reply button',
+    );
+    await sleep(200);
+    const input = queryElement<HTMLTextAreaElement>(
+      ['textarea[aria-label*="comment" i]', 'textarea[placeholder*="comment" i]', 'textarea[placeholder*="reply" i]'],
+      'reply input',
+    );
+    input.focus();
+    setReactInputValue(input, text);
+    await sleep(100);
+    clickElement(
+      ['button[type="submit"]', '[data-testid="post-comment-button"]'],
+      'post reply button',
+    );
+  }
+
+  async loadMoreComments(): Promise<void> {
+    const loadMoreBtn = document.querySelector<HTMLElement>(
+      'button[aria-label*="Load more" i], [role="button"][aria-label*="more comment" i]',
+    );
+    if (loadMoreBtn) {
+      loadMoreBtn.click();
+      return;
+    }
+    // Fallback: scroll the comment container down
+    const commentSection = document.querySelector<HTMLElement>('[role="dialog"] ul, [role="dialog"] [style*="overflow"]');
+    if (commentSection) {
+      commentSection.scrollTop += 500;
+      return;
+    }
+    throw new Error('Instagram element not found: load more comments (tried: load more button, comment scroll container)');
   }
 
   // ── DM ──
