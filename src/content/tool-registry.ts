@@ -18,6 +18,7 @@ import { ExecutorRegistry } from './executors';
 import { mergeToolSets } from './merge';
 import { AIClassifier } from './ai-classifier';
 import type { IToolCachePort } from '../ports/tool-cache.port';
+import type { IToolManifestPort } from '../ports/tool-manifest.port';
 import { extractSite } from '../adapters/indexeddb-tool-cache-adapter';
 
 const SCANNER_CACHE_TTL_MS = 2000;
@@ -40,6 +41,8 @@ export class ToolRegistry {
 
   /** Optional persistent tool cache (IndexedDB) */
   private toolCache: IToolCachePort | null = null;
+  /** Optional tool manifest for MCP JSON export */
+  private toolManifest: IToolManifestPort | null = null;
   /** Track if a background diff is already running to avoid duplicates */
   private diffInProgress = false;
 
@@ -50,6 +53,16 @@ export class ToolRegistry {
   /** Inject a persistent tool cache adapter. */
   setToolCache(cache: IToolCachePort): void {
     this.toolCache = cache;
+  }
+
+  /** Inject a tool manifest adapter. */
+  setToolManifest(manifest: IToolManifestPort): void {
+    this.toolManifest = manifest;
+  }
+
+  /** Get the tool manifest port (for message handler access). */
+  getToolManifest(): IToolManifestPort | null {
+    return this.toolManifest;
   }
 
   // ── Public API ──
@@ -79,6 +92,10 @@ export class ToolRegistry {
             }
           }
           chrome.runtime.sendMessage({ tools: cached, url: currentUrl });
+          // Update manifest with cached tools
+          if (this.toolManifest) {
+            this.toolManifest.updatePage(site, currentUrl, cached as CleanTool[]);
+          }
           this.scheduleBackgroundDiff(site, currentUrl);
           return cached as CleanTool[];
         }
@@ -181,6 +198,11 @@ export class ToolRegistry {
       });
     }
 
+    // ── Update tool manifest ──
+    if (this.toolManifest) {
+      this.toolManifest.updatePage(site, currentUrl, cleanTools);
+    }
+
     return cleanTools;
   }
 
@@ -206,6 +228,10 @@ export class ToolRegistry {
           );
           await this.toolCache!.applyDiff(site, url, diff);
           chrome.runtime.sendMessage({ tools: liveTools, url });
+          // Update manifest with live tools after diff
+          if (this.toolManifest) {
+            this.toolManifest.updatePage(site, url, liveTools);
+          }
         }
       } catch (e) {
         console.warn('[WebMCP] Background diff failed:', e);

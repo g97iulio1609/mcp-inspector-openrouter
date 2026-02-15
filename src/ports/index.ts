@@ -41,6 +41,12 @@ export type {
   CrawlResult,
 } from './crawler.port';
 export type {
+  IToolManifestPort,
+  SiteToolManifest,
+  PageToolSet,
+  ManifestTool,
+} from './tool-manifest.port';
+export type {
   INavigationPlanPort,
   NavigationStepType,
   StepErrorStrategy,
