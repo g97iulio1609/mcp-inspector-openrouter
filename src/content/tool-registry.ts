@@ -45,6 +45,8 @@ export class ToolRegistry {
   private toolManifest: IToolManifestPort | null = null;
   /** Track if a background diff is already running to avoid duplicates */
   private diffInProgress = false;
+  /** Callback invoked after manifest updates */
+  private manifestUpdateCallback: (() => void) | null = null;
 
   constructor() {
     void this.aiClassifier;
@@ -63,6 +65,11 @@ export class ToolRegistry {
   /** Get the tool manifest port (for message handler access). */
   getToolManifest(): IToolManifestPort | null {
     return this.toolManifest;
+  }
+
+  /** Register a callback invoked after each manifest update. */
+  onManifestUpdate(callback: () => void): void {
+    this.manifestUpdateCallback = callback;
   }
 
   // ── Public API ──
@@ -95,6 +102,7 @@ export class ToolRegistry {
           // Update manifest with cached tools
           if (this.toolManifest) {
             this.toolManifest.updatePage(site, currentUrl, cached as CleanTool[]);
+            this.manifestUpdateCallback?.();
           }
           this.scheduleBackgroundDiff(site, currentUrl);
           return cached as CleanTool[];
@@ -201,6 +209,7 @@ export class ToolRegistry {
     // ── Update tool manifest ──
     if (this.toolManifest) {
       this.toolManifest.updatePage(site, currentUrl, cleanTools);
+      this.manifestUpdateCallback?.();
     }
 
     return cleanTools;
@@ -231,6 +240,7 @@ export class ToolRegistry {
           // Update manifest with live tools after diff
           if (this.toolManifest) {
             this.toolManifest.updatePage(site, url, liveTools);
+            this.manifestUpdateCallback?.();
           }
         }
       } catch (e) {

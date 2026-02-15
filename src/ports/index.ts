@@ -46,6 +46,7 @@ export type {
   PageToolSet,
   ManifestTool,
 } from './tool-manifest.port';
+export type { IWmcpServerPort } from './wmcp-server.port';
 export type {
   INavigationPlanPort,
   NavigationStepType,
