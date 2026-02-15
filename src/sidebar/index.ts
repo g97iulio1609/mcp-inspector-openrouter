@@ -8,10 +8,12 @@ import '../components/chat-header';
 import '../components/chat-input';
 import '../components/status-bar';
 import '../components/tool-table';
+import '../components/manifest-dashboard';
 import type { ChatHeader } from '../components/chat-header';
 import type { ChatInput } from '../components/chat-input';
 import type { StatusBar } from '../components/status-bar';
 import type { ToolTable } from '../components/tool-table';
+import type { ManifestDashboard } from '../components/manifest-dashboard';
 import type { TabNavigator } from '../components/tab-navigator';
 import type { TabSessionIndicator } from '../components/tab-session-indicator';
 import type { CleanTool } from '../types';
@@ -38,6 +40,7 @@ const chatHeader = $<ChatHeader>('chatHeader');
 const chatInput = $<ChatInput>('chatInput');
 const tabNavigator = $<TabNavigator>('tabNavigator');
 const sessionIndicator = $<TabSessionIndicator>('sessionIndicator');
+const manifestDashboard = $<ManifestDashboard>('manifestDashboard');
 
 // Shared tab session adapter — tracks per-browser-tab context
 const tabSession = new TabSessionAdapter();
@@ -46,6 +49,7 @@ tabSession.startSession();
 // Configure tab navigator with tab definitions
 tabNavigator.tabs = [
   { id: 'tools', label: 'Tools', icon: ICONS.wrench },
+  { id: 'manifest', label: 'Manifest', icon: ICONS.clipboard },
   { id: 'chat', label: 'Chat', icon: ICONS.chat },
 ];
 tabNavigator.activeTab = 'tools';
@@ -55,7 +59,40 @@ const tabPanels = document.querySelectorAll<HTMLDivElement>('.tab-panel');
 tabNavigator.addEventListener('tab-change', ((e: CustomEvent) => {
   const target = e.detail.tab;
   tabPanels.forEach((p) => p.classList.toggle('active', p.id === `tab-${target}`));
+  if (target === 'manifest') void loadManifest();
 }) as EventListener);
+
+// ── Manifest dashboard wiring ──
+
+async function loadManifest(): Promise<void> {
+  try {
+    manifestDashboard.loading = true;
+    manifestDashboard.error = '';
+    const tab = await getCurrentTab();
+    if (!tab?.id || !isInjectableUrl(tab.url)) {
+      manifestDashboard.loading = false;
+      manifestDashboard.error = 'No injectable page active';
+      return;
+    }
+    const result = await chrome.tabs.sendMessage(tab.id, { action: 'GET_SITE_MANIFEST' }) as { manifest?: string; error?: string };
+    manifestDashboard.loading = false;
+    if (result?.error) {
+      manifestDashboard.error = result.error;
+    } else {
+      manifestDashboard.manifestJson = result?.manifest ?? '';
+    }
+  } catch (err) {
+    manifestDashboard.loading = false;
+    manifestDashboard.error = (err as Error).message;
+  }
+}
+
+manifestDashboard.addEventListener('refresh-manifest', () => void loadManifest());
+manifestDashboard.addEventListener('copy-manifest', async () => {
+  if (manifestDashboard.manifestJson) {
+    await navigator.clipboard.writeText(manifestDashboard.manifestJson);
+  }
+});
 
 // State
 let currentTools: CleanTool[] = [];

@@ -26,5 +26,6 @@ export { EcommerceAdapter, requireNonEmpty } from './ecommerce-adapter';
 export { SemanticCrawlerAdapter, extractToolsFromHTML, extractInternalLinks, matchesPatterns, globToRegex } from './semantic-crawler-adapter';
 export { NotionAdapter } from './notion-adapter';
 export { ToolManifestAdapter } from './tool-manifest-adapter';
+export { ManifestPersistenceAdapter } from './manifest-persistence-adapter';
 export { GitHubAdapter } from './github-adapter';
 export { ProductivityAdapter } from './productivity-adapter';

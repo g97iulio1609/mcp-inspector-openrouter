@@ -19,6 +19,7 @@ import { mergeToolSets } from './merge';
 import { AIClassifier } from './ai-classifier';
 import type { IToolCachePort } from '../ports/tool-cache.port';
 import type { IToolManifestPort } from '../ports/tool-manifest.port';
+import type { IManifestPersistencePort } from '../ports/manifest-persistence.port';
 import { extractSite } from '../adapters/indexeddb-tool-cache-adapter';
 
 const SCANNER_CACHE_TTL_MS = 2000;
@@ -45,6 +46,10 @@ export class ToolRegistry {
   private toolManifest: IToolManifestPort | null = null;
   /** Track if a background diff is already running to avoid duplicates */
   private diffInProgress = false;
+  /** Callback invoked after manifest updates */
+  private manifestUpdateCallback: (() => void) | null = null;
+  /** Optional persistent manifest storage (IndexedDB) */
+  private manifestPersistence: IManifestPersistencePort | null = null;
 
   constructor() {
     void this.aiClassifier;
@@ -60,9 +65,64 @@ export class ToolRegistry {
     this.toolManifest = manifest;
   }
 
+  /** Inject a manifest persistence adapter. */
+  setManifestPersistence(persistence: IManifestPersistencePort): void {
+    this.manifestPersistence = persistence;
+  }
+
   /** Get the tool manifest port (for message handler access). */
   getToolManifest(): IToolManifestPort | null {
     return this.toolManifest;
+  }
+
+  /** Register a callback invoked after each manifest update. */
+  onManifestUpdate(callback: () => void): void {
+    this.manifestUpdateCallback = callback;
+  }
+
+  /**
+   * Load persisted manifest into the in-memory adapter on startup.
+   * Call after setToolManifest and setManifestPersistence.
+   */
+  async loadPersistedManifest(): Promise<void> {
+    if (!this.manifestPersistence || !this.toolManifest) return;
+    const site = extractSite(location.href);
+    try {
+      const persisted = await this.manifestPersistence.load(site);
+      if (persisted) {
+        // Replay each page into the in-memory manifest adapter
+        for (const [, page] of Object.entries(persisted.pages)) {
+          const pageTools = persisted.tools.filter(t =>
+            page.tools.includes(t.name),
+          );
+          const asClean: CleanTool[] = pageTools.map(t => ({
+            name: t.name,
+            description: t.description,
+            inputSchema: t.inputSchema as CleanTool['inputSchema'],
+            category: t.category as CleanTool['category'],
+            annotations: t.annotations as CleanTool['annotations'],
+          }));
+          // Use a synthetic URL from the pattern to restore state
+          this.toolManifest.updatePage(site, `https://${site}${page.urlPattern}`, asClean);
+        }
+        this.manifestUpdateCallback?.();
+        console.debug(`[WebMCP] Restored persisted manifest for ${site}`);
+      }
+    } catch (e) {
+      console.warn('[WebMCP] Failed to load persisted manifest:', e);
+    }
+  }
+
+  /** Update manifest and persist in background. */
+  private updateManifestAndPersist(site: string, url: string, tools: CleanTool[]): void {
+    if (!this.toolManifest) return;
+    const manifest = this.toolManifest.updatePage(site, url, tools);
+    this.manifestUpdateCallback?.();
+    if (this.manifestPersistence) {
+      this.manifestPersistence.save(site, manifest).catch(e => {
+        console.warn('[WebMCP] Manifest persistence save failed:', e);
+      });
+    }
   }
 
   // ── Public API ──
@@ -93,9 +153,7 @@ export class ToolRegistry {
           }
           chrome.runtime.sendMessage({ tools: cached, url: currentUrl });
           // Update manifest with cached tools
-          if (this.toolManifest) {
-            this.toolManifest.updatePage(site, currentUrl, cached as CleanTool[]);
-          }
+          this.updateManifestAndPersist(site, currentUrl, cached as CleanTool[]);
           this.scheduleBackgroundDiff(site, currentUrl);
           return cached as CleanTool[];
         }
@@ -199,9 +257,7 @@ export class ToolRegistry {
     }
 
     // ── Update tool manifest ──
-    if (this.toolManifest) {
-      this.toolManifest.updatePage(site, currentUrl, cleanTools);
-    }
+    this.updateManifestAndPersist(site, currentUrl, cleanTools);
 
     return cleanTools;
   }
@@ -229,9 +285,7 @@ export class ToolRegistry {
           await this.toolCache!.applyDiff(site, url, diff);
           chrome.runtime.sendMessage({ tools: liveTools, url });
           // Update manifest with live tools after diff
-          if (this.toolManifest) {
-            this.toolManifest.updatePage(site, url, liveTools);
-          }
+          this.updateManifestAndPersist(site, url, liveTools);
         }
       } catch (e) {
         console.warn('[WebMCP] Background diff failed:', e);

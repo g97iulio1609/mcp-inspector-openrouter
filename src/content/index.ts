@@ -18,8 +18,10 @@ import {
   InteractiveStateProvider,
   VisibilityStateProvider,
 } from './live-state';
-import { IndexedDBToolCacheAdapter } from '../adapters/indexeddb-tool-cache-adapter';
+import { IndexedDBToolCacheAdapter, extractSite } from '../adapters/indexeddb-tool-cache-adapter';
 import { ToolManifestAdapter } from '../adapters/tool-manifest-adapter';
+import { ManifestPersistenceAdapter } from '../adapters/manifest-persistence-adapter';
+import { WmcpServer } from './wmcp-server';
 
 // ── Guard against duplicate injection ──
 if (window.__wmcp_loaded) {
@@ -31,6 +33,20 @@ if (window.__wmcp_loaded) {
   const registry = new ToolRegistry();
   registry.setToolCache(new IndexedDBToolCacheAdapter());
   registry.setToolManifest(new ToolManifestAdapter());
+  registry.setManifestPersistence(new ManifestPersistenceAdapter());
+
+  // Restore persisted manifest for instant availability
+  void registry.loadPersistedManifest();
+
+  // ── WebMCP JSON server via DOM injection ──
+  const wmcpServer = new WmcpServer();
+  const site = extractSite(location.href);
+  const manifestAdapter = registry.getToolManifest()!;
+
+  wmcpServer.onRequest(() => manifestAdapter.toMCPJson(site));
+  registry.onManifestUpdate(() => {
+    wmcpServer.exposeManifest(manifestAdapter.toMCPJson(site));
+  });
 
   createMessageHandler(registry);
 

@@ -11,3 +11,4 @@ export { PlanViewer } from './plan-viewer';
 export { SecurityDialog } from './security-dialog';
 export { TabNavigator } from './tab-navigator';
 export type { TabConfig } from './tab-navigator';
+export { ManifestDashboard } from './manifest-dashboard';
