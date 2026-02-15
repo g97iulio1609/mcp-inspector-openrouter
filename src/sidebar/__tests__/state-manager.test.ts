@@ -124,7 +124,7 @@ describe('PlanManager.resetOnConversationChange', () => {
 
 describe('AIChatController.resetOnConversationChange', () => {
   // Dynamically import to avoid triggering full module side-effects
-  it('clears activeMentions, lastSuggestedUserPrompt, and pinnedConv', async () => {
+  it('clears activeMentions and lastSuggestedUserPrompt (pinnedConv is self-cleaning)', async () => {
     const { AIChatController } = await import('../ai-chat-controller');
 
     const ctrl = new AIChatController({
@@ -148,7 +148,8 @@ describe('AIChatController.resetOnConversationChange', () => {
 
     expect((ctrl as any).activeMentions).toEqual([]);
     expect((ctrl as any).lastSuggestedUserPrompt).toBe('');
-    expect((ctrl as any).pinnedConv).toBeNull();
+    // pinnedConv is NOT reset — it self-cleans inside promptAI() to avoid mid-flight race conditions
+    expect((ctrl as any).pinnedConv).toEqual({ site: 'x', convId: 'y' });
   });
 });
 

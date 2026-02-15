@@ -68,7 +68,8 @@ export class AIChatController implements IResettable {
   resetOnConversationChange(): void {
     this.activeMentions = [];
     this.lastSuggestedUserPrompt = '';
-    this.pinnedConv = null;
+    // pinnedConv is NOT reset here — it's self-cleaning inside promptAI()
+    // and resetting it mid-flight would mis-route error messages
   }
 
   async init(): Promise<void> {
