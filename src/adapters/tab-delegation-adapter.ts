@@ -13,7 +13,7 @@ export class TabDelegationAdapter implements ITabDelegationPort {
   private readonly tabs = new Map<number, TabAgent>();
 
   registerTab(tabId: number, url: string, title: string, skills: string[]): void {
-    this.tabs.set(tabId, { tabId, url, title, skills: [...skills] });
+    this.tabs.set(tabId, Object.freeze({ tabId, url, title, skills: Object.freeze([...skills]) }));
   }
 
   unregisterTab(tabId: number): void {
