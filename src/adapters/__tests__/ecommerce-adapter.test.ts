@@ -488,4 +488,94 @@ describe('EcommerceAdapter', () => {
       await expect(adapter.sortProducts('newest')).rejects.toThrow('Sort option "newest" not available');
     });
   });
+
+  // ── Admin detection ──
+
+  describe('isAdminPage', () => {
+    it('detects Shopify admin URL', () => {
+      (window as Record<string, unknown>)['Shopify'] = {};
+      Object.defineProperty(window, 'location', {
+        value: { href: 'https://myshop.myshopify.com/admin/products' },
+        writable: true, configurable: true,
+      });
+      expect(adapter.isAdminPage()).toBe(true);
+    });
+
+    it('returns false for non-admin storefront', () => {
+      (window as Record<string, unknown>)['Shopify'] = {};
+      Object.defineProperty(window, 'location', {
+        value: { href: 'https://myshop.com/products/widget' },
+        writable: true, configurable: true,
+      });
+      expect(adapter.isAdminPage()).toBe(false);
+    });
+  });
+
+  // ── Order management ──
+
+  describe('getOrders', () => {
+    it('returns empty array when no order rows found', async () => {
+      const orders = await adapter.getOrders();
+      expect(orders).toEqual([]);
+    });
+  });
+
+  describe('getOrderDetails', () => {
+    it('rejects empty orderId', async () => {
+      await expect(adapter.getOrderDetails('')).rejects.toThrow('orderId must be non-empty');
+    });
+  });
+
+  describe('trackOrder', () => {
+    it('rejects empty orderId', async () => {
+      await expect(adapter.trackOrder('')).rejects.toThrow('orderId must be non-empty');
+    });
+  });
+
+  // ── Inventory ──
+
+  describe('getInventoryStatus', () => {
+    it('returns empty array when no inventory rows found', async () => {
+      const items = await adapter.getInventoryStatus();
+      expect(items).toEqual([]);
+    });
+  });
+
+  describe('updateInventory', () => {
+    it('rejects empty productId', async () => {
+      await expect(adapter.updateInventory('', 10)).rejects.toThrow('productId must be non-empty');
+    });
+
+    it('rejects non-positive quantity', async () => {
+      await expect(adapter.updateInventory('prod-1', 0)).rejects.toThrow('quantity must be a positive integer');
+    });
+
+    it('rejects negative quantity', async () => {
+      await expect(adapter.updateInventory('prod-1', -5)).rejects.toThrow('quantity must be a positive integer');
+    });
+  });
+
+  // ── Product CRUD ──
+
+  describe('createProduct', () => {
+    it('rejects empty product name', async () => {
+      await expect(adapter.createProduct({ name: '', price: 10 })).rejects.toThrow('name must be non-empty');
+    });
+
+    it('rejects negative price', async () => {
+      await expect(adapter.createProduct({ name: 'Widget', price: -1 })).rejects.toThrow('price must be a positive number');
+    });
+  });
+
+  describe('updateProduct', () => {
+    it('rejects empty productId', async () => {
+      await expect(adapter.updateProduct('', { name: 'New' })).rejects.toThrow('productId must be non-empty');
+    });
+  });
+
+  describe('deleteProduct', () => {
+    it('rejects empty productId', async () => {
+      await expect(adapter.deleteProduct('')).rejects.toThrow('productId must be non-empty');
+    });
+  });
 });
