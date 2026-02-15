@@ -513,4 +513,56 @@ describe('AgentOrchestrator', () => {
       expect(events.length).toBe(1);
     });
   });
+
+  // ── Configurable limits ──
+
+  describe('configurable limits', () => {
+    it('respects custom maxIterations', async () => {
+      const orch = new AgentOrchestrator({
+        ...makeDeps(mocks),
+        limits: { maxIterations: 3 },
+      });
+      mocks.mockChat.sendMessage.mockResolvedValue({
+        functionCalls: [{ id: 'fc', name: 't', args: {} }],
+      });
+
+      const result = await orch.run('go', makeContext());
+      // 1 initial + 3 iterations = 4 total
+      expect(mocks.mockChat.sendMessage).toHaveBeenCalledTimes(4);
+      expect(result.stepsCompleted).toBe(3);
+    });
+
+    it('respects custom loopTimeoutMs', async () => {
+      const orch = new AgentOrchestrator({
+        ...makeDeps(mocks),
+        limits: { loopTimeoutMs: 5_000 },
+      });
+
+      let callCount = 0;
+      const spy = vi.spyOn(performance, 'now');
+      spy.mockImplementation(() => {
+        callCount++;
+        return callCount <= 1 ? 0 : 6_000;
+      });
+
+      mocks.mockChat.sendMessage
+        .mockResolvedValueOnce({ functionCalls: [{ id: 'fc1', name: 't', args: {} }] })
+        .mockResolvedValueOnce({ functionCalls: [{ id: 'fc2', name: 't', args: {} }] });
+
+      const result = await orch.run('go', makeContext());
+      expect(result.text).toContain('Reached maximum tool iterations');
+      spy.mockRestore();
+    });
+
+    it('uses defaults when limits not provided', async () => {
+      mocks.mockChat.sendMessage.mockResolvedValue({
+        functionCalls: [{ id: 'fc', name: 't', args: {} }],
+      });
+
+      const result = await orchestrator.run('go', makeContext());
+      // Default MAX_ITERATIONS = 10 → 1 initial + 10 = 11 calls
+      expect(mocks.mockChat.sendMessage).toHaveBeenCalledTimes(11);
+      expect(result.stepsCompleted).toBe(10);
+    });
+  });
 });

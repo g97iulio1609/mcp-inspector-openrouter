@@ -33,8 +33,15 @@ import type { ToolResponse, ParsedFunctionCall, PageContext, CleanTool, ContentP
 import { isNavigationTool, waitForPageAndRescan } from '../sidebar/tool-loop';
 import { logger } from '../sidebar/debug-logger';
 
-const MAX_ITERATIONS = 10;
-const LOOP_TIMEOUT_MS = 60_000;
+const DEFAULT_MAX_ITERATIONS = 10;
+const DEFAULT_LOOP_TIMEOUT_MS = 60_000;
+
+export interface OrchestratorLimits {
+  /** Maximum tool-loop iterations per run (default: 10). */
+  readonly maxIterations?: number;
+  /** Global loop timeout in ms (default: 60 000). */
+  readonly loopTimeoutMs?: number;
+}
 
 export interface OrchestratorDeps {
   readonly toolPort: IToolExecutionPort;
@@ -44,6 +51,7 @@ export interface OrchestratorDeps {
   readonly tabSession?: ITabSessionPort;
   readonly subagentPort?: ISubagentPort;
   readonly depth?: number;
+  readonly limits?: OrchestratorLimits;
   readonly chatFactory: () => OpenRouterChat;
   readonly buildConfig: (ctx: PageContext | null, tools: readonly ToolDefinition[]) => ChatConfig;
 }
@@ -137,17 +145,20 @@ export class AgentOrchestrator implements IAgentPort {
       });
     }
 
+    const maxIterations = this.deps.limits?.maxIterations ?? DEFAULT_MAX_ITERATIONS;
+    const loopTimeoutMs = this.deps.limits?.loopTimeoutMs ?? DEFAULT_LOOP_TIMEOUT_MS;
+
     const config = enrichedBuildConfig(pageContext, tools);
     let currentResult = await chat.sendMessage({ message: prompt, config });
 
     const loopStart = performance.now();
     let iteration = 0;
 
-    while (iteration < MAX_ITERATIONS) {
+    while (iteration < maxIterations) {
       iteration++;
 
-      if (performance.now() - loopStart > LOOP_TIMEOUT_MS) {
-        logger.warn('Orchestrator', 'Tool loop timed out after 60s');
+      if (performance.now() - loopStart > loopTimeoutMs) {
+        logger.warn('Orchestrator', `Tool loop timed out after ${loopTimeoutMs}ms`);
         this.eventBus.emit('timeout');
         break;
       }
