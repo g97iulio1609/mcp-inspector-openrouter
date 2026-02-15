@@ -31,6 +31,23 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Set input/textarea value in a way compatible with React-controlled inputs.
+ * Uses the native prototype setter to bypass React's value interception.
+ */
+function setReactInputValue(el: HTMLInputElement | HTMLTextAreaElement, value: string): void {
+  const proto = el instanceof HTMLTextAreaElement
+    ? HTMLTextAreaElement.prototype
+    : HTMLInputElement.prototype;
+  const nativeSetter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+  if (nativeSetter) {
+    nativeSetter.call(el, value);
+  } else {
+    el.value = value;
+  }
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 export class InstagramAdapter implements IInstagramPort {
   // ── Stories ──
 
@@ -64,8 +81,7 @@ export class InstagramAdapter implements IInstagramPort {
       'story reply input',
     );
     input.focus();
-    input.value = message;
-    input.dispatchEvent(new Event('input', { bubbles: true }));
+    setReactInputValue(input, message);
     await sleep(100);
     clickElement(
       ['[role="dialog"] button[type="submit"]', '[role="dialog"] [aria-label*="Send" i]'],
@@ -106,8 +122,7 @@ export class InstagramAdapter implements IInstagramPort {
       'comment input',
     );
     input.focus();
-    input.value = text;
-    input.dispatchEvent(new Event('input', { bubbles: true }));
+    setReactInputValue(input, text);
     await sleep(100);
     clickElement(
       ['button[type="submit"]', '[data-testid="post-comment-button"]'],
@@ -126,8 +141,7 @@ export class InstagramAdapter implements IInstagramPort {
       'share search input',
     );
     input.focus();
-    input.value = username;
-    input.dispatchEvent(new Event('input', { bubbles: true }));
+    setReactInputValue(input, username);
   }
 
   async scrollFeed(direction: 'up' | 'down'): Promise<void> {
@@ -155,8 +169,7 @@ export class InstagramAdapter implements IInstagramPort {
       'reel comment input',
     );
     input.focus();
-    input.value = text;
-    input.dispatchEvent(new Event('input', { bubbles: true }));
+    setReactInputValue(input, text);
     await sleep(100);
     clickElement(
       ['button[type="submit"]', '[data-testid="post-comment-button"]'],
@@ -182,8 +195,7 @@ export class InstagramAdapter implements IInstagramPort {
       'reel share search input',
     );
     input.focus();
-    input.value = username;
-    input.dispatchEvent(new Event('input', { bubbles: true }));
+    setReactInputValue(input, username);
   }
 
   // ── DM ──
@@ -196,8 +208,7 @@ export class InstagramAdapter implements IInstagramPort {
       'DM message input',
     );
     input.focus();
-    input.value = message;
-    input.dispatchEvent(new Event('input', { bubbles: true }));
+    setReactInputValue(input, message);
     await sleep(100);
     clickElement(
       ['button[type="submit"]', '[aria-label*="Send" i]'],
@@ -220,10 +231,16 @@ export class InstagramAdapter implements IInstagramPort {
   // ── Profile ──
 
   async followUser(_username: string): Promise<void> {
-    clickElement(
-      ['[data-testid="follow-button"]', 'button:not([aria-label*="Following"])'],
-      'follow button',
-    );
+    // Look for Follow button by data-testid or by text content
+    const testIdBtn = document.querySelector<HTMLElement>('[data-testid="follow-button"]');
+    if (testIdBtn) { testIdBtn.click(); return; }
+
+    // Fallback: find button whose trimmed text is exactly "Follow"
+    const buttons = document.querySelectorAll<HTMLButtonElement>('header button, [role="banner"] button');
+    for (const btn of buttons) {
+      if (btn.textContent?.trim() === 'Follow') { btn.click(); return; }
+    }
+    throw new Error('Instagram element not found: follow button (tried: [data-testid="follow-button"], header button with text "Follow")');
   }
 
   async unfollowUser(_username: string): Promise<void> {
@@ -265,8 +282,7 @@ export class InstagramAdapter implements IInstagramPort {
       'search input',
     );
     input.focus();
-    input.value = query;
-    input.dispatchEvent(new Event('input', { bubbles: true }));
+    setReactInputValue(input, query);
   }
 
   // ── State detection ──
@@ -281,9 +297,12 @@ export class InstagramAdapter implements IInstagramPort {
     if (path.startsWith('/explore')) return 'explore';
     if (path.startsWith('/reels')) return 'reels';
     if (path.startsWith('/stories')) return 'stories';
-    // Profile pages: /<username>/ (but not /p/, /explore/, etc.)
-    if (/^\/[^/]+\/?$/.test(path) && path !== '/') return 'profile';
     if (path === '/' || path === '') return 'feed';
+    // Known non-profile single-segment paths
+    const nonProfilePrefixes = ['/p', '/reel', '/tv', '/accounts', '/nametag', '/settings'];
+    if (nonProfilePrefixes.some((p) => path.startsWith(p))) return 'unknown';
+    // Profile pages: /<username>/
+    if (/^\/[^/]+\/?$/.test(path)) return 'profile';
     return 'unknown';
   }
 }

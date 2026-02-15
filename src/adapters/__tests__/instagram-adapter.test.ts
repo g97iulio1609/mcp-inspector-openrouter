@@ -93,6 +93,21 @@ describe('InstagramAdapter', () => {
     expect(adapter.getCurrentSection()).toBe('unknown');
   });
 
+  it('getCurrentSection returns "unknown" for /reel/ paths', () => {
+    setLocation('https://www.instagram.com/reel/XYZ/');
+    expect(adapter.getCurrentSection()).toBe('unknown');
+  });
+
+  it('getCurrentSection returns "unknown" for /accounts/ paths', () => {
+    setLocation('https://www.instagram.com/accounts/edit/');
+    expect(adapter.getCurrentSection()).toBe('unknown');
+  });
+
+  it('getCurrentSection returns "unknown" for /tv/ paths', () => {
+    setLocation('https://www.instagram.com/tv/');
+    expect(adapter.getCurrentSection()).toBe('unknown');
+  });
+
   // ── Feed: likePost ──
 
   it('likePost clicks the like button', async () => {
