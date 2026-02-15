@@ -22,6 +22,7 @@
     "copy-webpack-plugin": "^12.0.2",
     "eslint": "^9.16.0",
     "eslint-config-prettier": "^9.1.0",
+    "fake-indexeddb": "^6.2.5",
     "happy-dom": "^15.11.0",
     "prettier": "^3.4.0",
     "ts-loader": "^9.5.1",
@@ -32,6 +33,7 @@
     "webpack-merge": "^6.0.1"
   },
   "dependencies": {
-    "lit": "^3.3.2"
+    "lit": "^3.3.2",
+    "onegenui-deep-agents": "file:../onecrawl"
   }
 }
