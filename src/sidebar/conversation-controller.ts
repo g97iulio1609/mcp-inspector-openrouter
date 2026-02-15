@@ -164,12 +164,8 @@ export class ConversationController {
       Store.addMessage(site, convId, msg);
     }
     ChatUI.appendBubble(this.chatContainer, role, content, {
-      role,
-      content,
       ts: Date.now(),
-      ...(meta.tool ? { tool: meta.tool as string } : {}),
-      ...(meta.args ? { args: meta.args as Record<string, unknown> } : {}),
-      ...(meta.reasoning ? { reasoning: meta.reasoning as string } : {}),
-    });
+      ...meta,
+    } as Partial<Message>);
   }
 }

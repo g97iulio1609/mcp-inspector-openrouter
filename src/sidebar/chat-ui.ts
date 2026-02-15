@@ -1,36 +1,18 @@
 /**
  * chat-ui.ts — Chat bubble rendering and conversation selector UI.
- * Delegates rendering to <chat-bubble> and <chat-container> Lit components.
+ * Delegates entirely to <chat-container> Lit component for rendering.
  */
 
 import type { Message, MessageRole } from '../types';
-import type { ChatBubble as ChatBubbleElement } from '../components/chat-bubble';
 import type { ChatContainer as ChatContainerElement } from '../components/chat-container';
 
-import '../components/chat-bubble';
 import '../components/chat-container';
-
-// ── Helpers ──
-
-function scrollToBottom(container: HTMLElement): void {
-  container.scrollTop = container.scrollHeight;
-}
-
-function isLitContainer(el: HTMLElement): el is ChatContainerElement {
-  return 'clear' in el && typeof (el as ChatContainerElement).clear === 'function';
-}
 
 // ── Public API ──
 
 /** Clear all bubbles from the chat container */
 export function clearChat(container: HTMLElement): void {
-  if (isLitContainer(container)) {
-    container.clear();
-  }
-  // Always remove DOM children: appendBubble uses appendChild which
-  // adds nodes outside Lit's template, so Lit's clear() alone won't
-  // remove them from Light DOM.
-  container.innerHTML = '';
+  (container as ChatContainerElement).clear();
 }
 
 /** Add a bubble to the chat UI and scroll */
@@ -40,15 +22,14 @@ export function appendBubble(
   content: string,
   meta: Partial<Message> = {},
 ): void {
-  const bubble = document.createElement('chat-bubble') as ChatBubbleElement;
-  bubble.role = role;
-  bubble.content = content;
-  bubble.timestamp = meta.ts ?? Date.now();
-  if (meta.tool) bubble.toolName = meta.tool;
-  if (meta.args) bubble.toolArgs = meta.args;
-  if (meta.reasoning) bubble.reasoning = meta.reasoning;
-  container.appendChild(bubble);
-  scrollToBottom(container);
+  (container as ChatContainerElement).appendMessage({
+    role,
+    content,
+    ts: meta.ts ?? Date.now(),
+    tool: meta.tool,
+    args: meta.args,
+    reasoning: meta.reasoning,
+  });
 }
 
 /** Render all messages from a conversation */
@@ -56,10 +37,7 @@ export function renderConversation(
   container: HTMLElement,
   messages: readonly Message[],
 ): void {
-  clearChat(container);
-  for (const msg of messages) {
-    appendBubble(container, msg.role, msg.content, msg);
-  }
+  (container as ChatContainerElement).setMessages([...messages]);
 }
 
 // ── Message actions (edit/delete) ──
@@ -75,9 +53,9 @@ export function renderConversationWithActions(
   messages: readonly Message[],
   actions: MessageActions,
 ): void {
-  clearChat(container);
+  (container as ChatContainerElement).setMessages([...messages], true);
 
-  // Use event delegation on the container instead of per-bubble listeners
+  // Use event delegation on the container for message-edit / message-delete
   const editHandler = ((e: CustomEvent) => {
     actions.onEdit(e.detail.index, e.detail.content);
   }) as EventListener;
@@ -87,27 +65,11 @@ export function renderConversationWithActions(
 
   // Remove previous listeners (stored on element) before adding new ones
   const el = container as HTMLElement & { _editHandler?: EventListener; _deleteHandler?: EventListener };
-  if (el._editHandler) container.removeEventListener('bubble-edit', el._editHandler);
-  if (el._deleteHandler) container.removeEventListener('bubble-delete', el._deleteHandler);
+  if (el._editHandler) container.removeEventListener('message-edit', el._editHandler);
+  if (el._deleteHandler) container.removeEventListener('message-delete', el._deleteHandler);
   el._editHandler = editHandler;
   el._deleteHandler = deleteHandler;
 
-  container.addEventListener('bubble-edit', editHandler);
-  container.addEventListener('bubble-delete', deleteHandler);
-
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i];
-    const bubble = document.createElement('chat-bubble') as ChatBubbleElement;
-    bubble.role = msg.role;
-    bubble.content = msg.content;
-    bubble.timestamp = msg.ts ?? Date.now();
-    if (msg.tool) bubble.toolName = msg.tool;
-    if (msg.args) bubble.toolArgs = msg.args;
-    if (msg.reasoning) bubble.reasoning = msg.reasoning;
-    bubble.editable = true;
-    bubble.index = i;
-    container.appendChild(bubble);
-  }
-
-  scrollToBottom(container);
+  container.addEventListener('message-edit', editHandler);
+  container.addEventListener('message-delete', deleteHandler);
 }
