@@ -12,7 +12,7 @@ import type {
   ToolDiff,
 } from '../ports/tool-cache.port';
 import type { CleanTool } from '../types';
-import { urlToPattern } from 'onegenui-deep-agents';
+import { urlToPattern } from 'onegenui-deep-agents/scraping';
 
 export { urlToPattern };
 

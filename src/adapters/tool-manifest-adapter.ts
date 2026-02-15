@@ -14,7 +14,7 @@ import type { CleanTool } from '../types';
 import {
   SemanticScrapingAdapter,
   type SemanticTool,
-} from 'onegenui-deep-agents';
+} from 'onegenui-deep-agents/scraping';
 
 /** Convert a CleanTool to a SemanticTool for the shared adapter. */
 function toSemanticTool(tool: CleanTool): SemanticTool {
