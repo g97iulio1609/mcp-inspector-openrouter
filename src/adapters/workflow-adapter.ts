@@ -104,7 +104,11 @@ export class WorkflowAdapter implements IWorkflowPort {
 
   private emit(event: WorkflowRunEvent): void {
     for (const listener of this.listeners) {
-      listener(event);
+      try {
+        listener(event);
+      } catch {
+        // Swallow listener errors to prevent workflow corruption
+      }
     }
   }
 }

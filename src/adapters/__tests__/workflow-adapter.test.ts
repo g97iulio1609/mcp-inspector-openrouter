@@ -310,6 +310,19 @@ describe('WorkflowAdapter', () => {
     expect(result.context).toEqual({});
   });
 
+  it('swallows throwing listener without corrupting workflow', async () => {
+    const events: WorkflowRunEvent[] = [];
+    adapter.onEvent(() => { throw new Error('listener boom'); });
+    adapter.onEvent((e) => events.push(e));
+
+    const step = makeStep('s1', 'Go', async (ctx) => ({ ...ctx, done: true }));
+    const result = await adapter.execute(makeWorkflow([step]));
+
+    expect(result.status).toBe('completed');
+    expect(result.context).toEqual({ done: true });
+    expect(events.length).toBeGreaterThan(0);
+  });
+
   it('events have valid timestamps', async () => {
     const events: WorkflowRunEvent[] = [];
     adapter.onEvent((e) => events.push(e));
