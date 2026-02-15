@@ -4,6 +4,7 @@
  */
 
 import type { IInstagramPort, InstagramSection } from '../ports/instagram.port';
+import type { IGesturePort } from '../ports/gesture.port';
 import { GestureAdapter } from './gesture-adapter';
 
 /** Check whether the current page is Instagram */
@@ -58,7 +59,11 @@ function requireUsername(username: string): string {
 }
 
 export class InstagramAdapter implements IInstagramPort {
-  private readonly gesture = new GestureAdapter();
+  private readonly gesture: IGesturePort;
+
+  constructor(gesture: IGesturePort = new GestureAdapter()) {
+    this.gesture = gesture;
+  }
 
   // ── Stories ──
 
@@ -223,7 +228,10 @@ export class InstagramAdapter implements IInstagramPort {
   }
 
   async scrollReels(count = 1): Promise<void> {
-    for (let i = 0; i < count; i++) {
+    const MAX_SCROLL = 50;
+    const n = Math.min(Math.max(Math.round(count), 0), MAX_SCROLL);
+    if (!Number.isFinite(n) || n <= 0) return;
+    for (let i = 0; i < n; i++) {
       await this.swipeToNextReel();
       await sleep(300);
     }
@@ -252,7 +260,7 @@ export class InstagramAdapter implements IInstagramPort {
 
   async replyToComment(text: string): Promise<void> {
     clickElement(
-      ['button[aria-label*="Reply" i]', '[role="button"][aria-label*="Reply" i]', 'span[role="button"]'],
+      ['button[aria-label*="Reply" i]', '[role="button"][aria-label*="Reply" i]'],
       'reply button',
     );
     await sleep(200);
