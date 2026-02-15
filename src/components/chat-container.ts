@@ -43,6 +43,13 @@ export class ChatContainer extends BaseElement {
   /** Remove all messages */
   clear(): void {
     this.messages = [];
+    this.editable = false;
+  }
+
+  /** Replace all messages at once (used by renderConversation / renderConversationWithActions) */
+  setMessages(msgs: Message[], editable = false): void {
+    this.messages = [...msgs];
+    this.editable = editable;
   }
 
   /** Scroll to the bottom of this container */

@@ -113,4 +113,40 @@ describe('ChatContainer', () => {
     el = await createContainer({ messages: sampleMessages, editable: true });
     expect(el.editable).toBe(true);
   });
+
+  describe('setMessages()', () => {
+    it('replaces messages and sets editable flag', async () => {
+      el = await createContainer({ messages: [] });
+      expect(el.messages.length).toBe(0);
+      expect(el.editable).toBe(false);
+
+      el.setMessages(sampleMessages, true);
+      expect(el.messages.length).toBe(3);
+      expect(el.editable).toBe(true);
+      expect(el.messages[0].role).toBe('user');
+    });
+
+    it('defaults editable to false', async () => {
+      el = await createContainer({ messages: sampleMessages, editable: true });
+      el.setMessages([{ role: 'user', content: 'only', ts: Date.now() }]);
+      expect(el.messages.length).toBe(1);
+      expect(el.editable).toBe(false);
+    });
+
+    it('makes a copy of the input array', async () => {
+      el = await createContainer({ messages: [] });
+      const input = [...sampleMessages];
+      el.setMessages(input);
+      input.push({ role: 'user', content: 'extra', ts: Date.now() });
+      expect(el.messages.length).toBe(3);
+    });
+  });
+
+  it('clear() resets editable to false', async () => {
+    el = await createContainer({ messages: sampleMessages, editable: true });
+    expect(el.editable).toBe(true);
+    el.clear();
+    expect(el.messages.length).toBe(0);
+    expect(el.editable).toBe(false);
+  });
 });
