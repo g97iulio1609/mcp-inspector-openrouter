@@ -60,6 +60,88 @@ interface IEcommercePort {
 | Wix | ✅ `wixBiSession` | ✅ | ✅ | ✅ | ✅ |
 | Webflow | ✅ `data-wf-site` | ✅ | ✅ | ✅ | ✅ |
 
+## Key Types
+
+```typescript
+interface OrderSummary {
+  orderId: string;
+  date: string;
+  status: string;
+  total: number;
+  currency: string;
+}
+
+interface OrderDetails extends OrderSummary {
+  items: CartItem[];
+  shippingAddress: string;
+  paymentMethod: string;
+}
+
+interface OrderTracking {
+  orderId: string;
+  carrier: string;
+  trackingNumber: string;
+  status: string;
+  events: TrackingEvent[];
+}
+
+interface TrackingEvent {
+  date: string;
+  location: string;
+  description: string;
+}
+
+interface InventoryItem {
+  productId: string;
+  name: string;
+  sku: string;
+  quantity: number;
+  inStock: boolean;
+}
+
+interface ProductCreateData {
+  title: string;
+  description: string;
+  price: number;
+  images: string[];
+  variants?: string[];
+  sku?: string;
+  inventory?: number;
+}
+```
+
+## Order Management
+
+- **`getOrders()`** — Returns an array of `OrderSummary` for the logged-in customer's recent orders.
+- **`getOrderDetails(orderId)`** — Returns full `OrderDetails` including line items, shipping address, and payment method.
+- **`trackOrder(orderId)`** — Returns `OrderTracking` with carrier info and a timeline of `TrackingEvent` entries.
+
+## Inventory (Admin)
+
+Requires `isAdminPage() === true`. Methods throw if called outside an admin context.
+
+- **`getInventoryStatus()`** — Returns all `InventoryItem` entries. Items with `quantity === 0` have `inStock: false`.
+- **`updateInventory(productId, quantity)`** — Sets the stock quantity for a product. Pass `quantity = 0` to mark as out-of-stock.
+
+## Product CRUD (Admin)
+
+Requires `isAdminPage() === true`. The adapter verifies page context before executing mutations.
+
+- **`createProduct(data)`** — Creates a new product from `ProductCreateData`. Navigates to the platform's product creation form and fills fields via DOM selectors.
+- **`updateProduct(productId, data)`** — Partially updates an existing product. Accepts `Partial<ProductCreateData>`.
+- **`deleteProduct(productId)`** — Deletes a product. Triggers platform-specific confirmation dialogs.
+
+## Admin Detection
+
+**`isAdminPage()`** detects admin URLs per platform:
+
+| Platform | Admin URL Pattern |
+|----------|-------------------|
+| Shopify | `/admin/` |
+| WooCommerce | `/wp-admin/` |
+| Wix | `manage.wix.com` |
+| Webflow | `webflow.com/design/` |
+
 ## Adapter
 
 `EcommerceAdapter` — DOM-based with platform-specific selector chains and fallbacks.
