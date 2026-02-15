@@ -27,7 +27,7 @@ function toManifestTool(tool: CleanTool, pattern: string): ManifestTool {
       schema = { type: 'object', properties: {} };
     }
   } else {
-    schema = (tool.inputSchema as Record<string, unknown>);
+    schema = { ...tool.inputSchema };
   }
 
   const annotations: Record<string, boolean> | undefined = tool.annotations
@@ -94,7 +94,8 @@ export class ToolManifestAdapter implements IToolManifestPort {
 
   updatePage(origin: string, url: string, tools: CleanTool[]): SiteToolManifest {
     const pattern = urlToPattern(url);
-    const hash = hashTools(tools);
+    // Hash without confidence — manifest doesn't track confidence
+    const hash = hashTools(tools.map((t) => ({ ...t, confidence: 0 })));
     const now = Date.now();
 
     const existing = this.manifests.get(origin);

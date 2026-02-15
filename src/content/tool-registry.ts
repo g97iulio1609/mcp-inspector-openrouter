@@ -92,6 +92,10 @@ export class ToolRegistry {
             }
           }
           chrome.runtime.sendMessage({ tools: cached, url: currentUrl });
+          // Update manifest with cached tools
+          if (this.toolManifest) {
+            this.toolManifest.updatePage(site, currentUrl, cached as CleanTool[]);
+          }
           this.scheduleBackgroundDiff(site, currentUrl);
           return cached as CleanTool[];
         }
@@ -224,6 +228,10 @@ export class ToolRegistry {
           );
           await this.toolCache!.applyDiff(site, url, diff);
           chrome.runtime.sendMessage({ tools: liveTools, url });
+          // Update manifest with live tools after diff
+          if (this.toolManifest) {
+            this.toolManifest.updatePage(site, url, liveTools);
+          }
         }
       } catch (e) {
         console.warn('[WebMCP] Background diff failed:', e);
