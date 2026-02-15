@@ -59,6 +59,11 @@ export type {
   WorkflowEventCallback,
 } from './workflow.port';
 export type {
+  ITabDelegationPort,
+  TabAgent,
+  TabDelegationResult,
+} from './tab-delegation.port';
+export type {
   INavigationPlanPort,
   NavigationStepType,
   StepErrorStrategy,
