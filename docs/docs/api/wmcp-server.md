@@ -11,20 +11,24 @@ The WebMCP Server exposes auto-generated tool manifests to the page, enabling ex
 The manifest is injected into the page as a script element:
 
 ```html
-<script type="application/wmcp+json">
+<script type="application/wmcp+json" id="wmcp-manifest">
 {
-  "origin": "https://example.com",
-  "version": 3,
-  "generatedAt": "2025-01-15T10:00:00Z",
+  "_meta": {
+    "origin": "https://example.com",
+    "version": 3,
+    "generatedAt": 1736935200000,
+    "pageCount": 1,
+    "toolCount": 5
+  },
   "tools": [...]
 }
 </script>
 ```
 
-The element is created or updated by `ToolManifestAdapter` whenever the manifest changes. External consumers can read it with:
+The element is created or updated by `ToolManifestAdapter` whenever the manifest changes. The element has `id="wmcp-manifest"` for easy retrieval:
 
 ```typescript
-const el = document.querySelector('script[type="application/wmcp+json"]');
+const el = document.getElementById('wmcp-manifest');
 const manifest = JSON.parse(el?.textContent ?? 'null');
 ```
 
