@@ -4,6 +4,7 @@
 
 import type { Plan, PlanStep, ToolResponse } from '../types';
 import type { PlanViewer } from '../components/plan-viewer';
+import type { IResettable } from './state-manager';
 import '../components/plan-viewer';
 
 
@@ -13,7 +14,7 @@ export interface ActivePlan {
   currentStepIdx: number;
 }
 
-export class PlanManager {
+export class PlanManager implements IResettable {
   activePlan: ActivePlan | null = null;
   planModeEnabled = false;
 
@@ -24,6 +25,11 @@ export class PlanManager {
     initialPlanMode = false,
   ) {
     this.planModeEnabled = initialPlanMode;
+  }
+
+  resetOnConversationChange(): void {
+    this.activePlan = null;
+    this._batchStepIdx = null;
   }
 
   // ── Step tracking (batch-aware) ──

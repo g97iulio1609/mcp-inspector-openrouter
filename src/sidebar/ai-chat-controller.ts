@@ -36,6 +36,7 @@ import type { ConversationController } from './conversation-controller';
 import type { ChatHeader } from '../components/chat-header';
 import type { ChatInput } from '../components/chat-input';
 import { createMentionAutocomplete, type MentionAutocomplete, type TabMention } from './tab-mention';
+import type { IResettable } from './state-manager';
 import { logger } from './debug-logger';
 
 export interface AIChatDeps {
@@ -50,7 +51,7 @@ export interface AIChatDeps {
   readonly tabSession: ITabSessionPort;
 }
 
-export class AIChatController {
+export class AIChatController implements IResettable {
   private genAI: OpenRouterAdapter | undefined;
   private userPromptPendingId = 0;
   private lastSuggestedUserPrompt = '';
@@ -62,6 +63,13 @@ export class AIChatController {
 
   constructor(deps: AIChatDeps) {
     this.deps = deps;
+  }
+
+  resetOnConversationChange(): void {
+    this.activeMentions = [];
+    this.lastSuggestedUserPrompt = '';
+    // pinnedConv is NOT reset here — it's self-cleaning inside promptAI()
+    // and resetting it mid-flight would mis-route error messages
   }
 
   async init(): Promise<void> {

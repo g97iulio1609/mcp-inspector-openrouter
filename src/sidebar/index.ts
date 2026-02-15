@@ -25,6 +25,7 @@ import type { SecurityDialog } from '../components/security-dialog';
 import { resetApprovalController } from './security-dialog';
 import { AIChatController } from './ai-chat-controller';
 import { TabSessionAdapter } from '../adapters/tab-session-adapter';
+import { StateManager } from './state-manager';
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -67,9 +68,13 @@ chrome.storage.local.get([STORAGE_KEY_PLAN_MODE]).then((result) => {
   chatHeader.planActive = enabled;
 });
 
+// Centralized state manager — ensures atomic per-conversation reset
+const stateManager = new StateManager();
+stateManager.register(planManager);
+
 const convCtrl = new ConversationController(chatContainer, chatHeader, {
   currentSite: '', currentConvId: null, chat: undefined, trace: [],
-});
+}, stateManager);
 
 // Helpers
 function isInjectableUrl(url: string | undefined): boolean {
@@ -133,6 +138,7 @@ const aiChat = new AIChatController({
   securityDialogEl,
   tabSession,
 });
+stateManager.register(aiChat);
 void aiChat.init();
 void chatInput.updateComplete.then(() => {
   aiChat.setupListeners();

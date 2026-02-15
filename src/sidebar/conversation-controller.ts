@@ -5,6 +5,7 @@
 import type { MessageRole, Message } from '../types';
 import type { OpenRouterChat } from '../services/adapters';
 import type { ChatHeader } from '../components/chat-header';
+import type { StateManager } from './state-manager';
 import * as Store from './chat-store';
 import * as ChatUI from './chat-ui';
 
@@ -18,6 +19,7 @@ export interface ConversationState {
 export class ConversationController {
   private readonly chatContainer: HTMLElement;
   private readonly chatHeader: ChatHeader;
+  private readonly stateManager: StateManager | null;
 
   state: ConversationState;
 
@@ -25,10 +27,12 @@ export class ConversationController {
     chatContainer: HTMLElement,
     chatHeader: ChatHeader,
     initialState: ConversationState,
+    stateManager?: StateManager,
   ) {
     this.chatContainer = chatContainer;
     this.chatHeader = chatHeader;
     this.state = initialState;
+    this.stateManager = stateManager ?? null;
   }
 
   refreshConversationList(): void {
@@ -37,6 +41,7 @@ export class ConversationController {
   }
 
   switchToConversation(convId: string): void {
+    this.stateManager?.resetConversationState();
     this.state.currentConvId = convId;
     this.state.trace = [];
     const msgs = Store.getMessages(this.state.currentSite, convId);
@@ -56,6 +61,7 @@ export class ConversationController {
   }
 
   createNewConversation(): void {
+    this.stateManager?.resetConversationState();
     const conv = Store.createConversation(this.state.currentSite);
     this.state.currentConvId = conv.id;
     this.state.chat = undefined;
@@ -66,6 +72,7 @@ export class ConversationController {
 
   deleteConversation(): void {
     if (!this.state.currentConvId) return;
+    this.stateManager?.resetConversationState();
     Store.deleteConversation(this.state.currentSite, this.state.currentConvId);
     this.state.currentConvId = null;
     this.state.chat = undefined;
@@ -83,9 +90,11 @@ export class ConversationController {
   handleSiteChange(newSite: string): boolean {
     const sameSite = newSite === this.state.currentSite;
     if (!sameSite) {
+      this.stateManager?.resetConversationState();
       this.state.currentSite = newSite;
       this.state.chat = undefined;
       this.state.currentConvId = null;
+      this.state.trace = [];
       ChatUI.clearChat(this.chatContainer);
     }
     return sameSite;
