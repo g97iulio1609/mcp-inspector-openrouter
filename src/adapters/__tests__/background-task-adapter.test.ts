@@ -158,4 +158,15 @@ describe('BackgroundTaskAdapter', () => {
       adapter.enqueue({ description: 'over', execute: () => new Promise(() => {}) }),
     ).toThrow('Max concurrent tasks (5) reached');
   });
+
+  it('respects custom maxConcurrent', async () => {
+    const custom = new BackgroundTaskAdapter({ maxConcurrent: 2 });
+    custom.enqueue({ description: 'a', execute: () => new Promise(() => {}) });
+    custom.enqueue({ description: 'b', execute: () => new Promise(() => {}) });
+    await flush();
+
+    expect(() =>
+      custom.enqueue({ description: 'c', execute: () => new Promise(() => {}) }),
+    ).toThrow('Max concurrent tasks (2) reached');
+  });
 });

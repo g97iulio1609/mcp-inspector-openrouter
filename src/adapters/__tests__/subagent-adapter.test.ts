@@ -258,4 +258,49 @@ describe('SubagentAdapter', () => {
     expect(result.success).toBe(true);
     expect(mockAgent.dispose).toHaveBeenCalledOnce();
   });
+
+  // ── Configurable limits ──
+
+  describe('configurable limits', () => {
+    it('respects custom maxConcurrent', async () => {
+      const pendingFactory = () =>
+        createMockAgent({ run: vi.fn().mockReturnValue(new Promise<AgentResult>(() => {})) });
+      adapter = new SubagentAdapter(pendingFactory, { maxConcurrent: 2 });
+
+      adapter.spawn({ prompt: 'a' });
+      adapter.spawn({ prompt: 'b' });
+      const result = await adapter.spawn({ prompt: 'c' });
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Max concurrent subagents (2)');
+    });
+
+    it('respects custom maxDepth', async () => {
+      adapter = new SubagentAdapter(factory, { maxDepth: 1 });
+      const result = await adapter.spawn({ prompt: 'deep', depth: 1 });
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Max subagent depth (1)');
+    });
+
+    it('respects custom defaultTimeoutMs', async () => {
+      mockAgent = createMockAgent({
+        run: vi.fn().mockReturnValue(new Promise<AgentResult>(() => {})),
+      });
+      factory = () => mockAgent;
+      adapter = new SubagentAdapter(factory, { defaultTimeoutMs: 10_000 });
+
+      const spawnPromise = adapter.spawn({ prompt: 'custom timeout' });
+      await vi.advanceTimersByTimeAsync(10_001);
+      const result = await spawnPromise;
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Subagent cancelled');
+    });
+
+    it('uses defaults when limits not provided', async () => {
+      adapter = new SubagentAdapter(factory);
+      // maxDepth defaults to 2
+      const result = await adapter.spawn({ prompt: 'deep', depth: 2 });
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Max subagent depth (2)');
+    });
+  });
 });

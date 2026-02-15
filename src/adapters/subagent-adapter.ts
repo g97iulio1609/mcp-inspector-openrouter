@@ -17,7 +17,16 @@ import type {
 } from '../ports/types';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
-const MAX_CONCURRENT = 3;
+const DEFAULT_MAX_CONCURRENT = 3;
+
+export interface SubagentLimits {
+  /** Maximum concurrent subagents (default: 3). */
+  readonly maxConcurrent?: number;
+  /** Default timeout per subagent in ms (default: 30 000). */
+  readonly defaultTimeoutMs?: number;
+  /** Maximum recursion depth (default: 2). */
+  readonly maxDepth?: number;
+}
 
 /** Generate a unique subagent ID */
 function generateId(): string {
@@ -27,9 +36,13 @@ function generateId(): string {
 export class SubagentAdapter implements ISubagentPort {
   private readonly active = new Map<string, { info: SubagentInfo; abort: AbortController }>();
   private readonly maxDepth: number;
+  private readonly maxConcurrent: number;
+  private readonly defaultTimeoutMs: number;
 
-  constructor(private readonly agentFactory: () => IAgentPort, maxDepth = 2) {
-    this.maxDepth = maxDepth;
+  constructor(private readonly agentFactory: () => IAgentPort, limits?: SubagentLimits) {
+    this.maxDepth = limits?.maxDepth ?? 2;
+    this.maxConcurrent = limits?.maxConcurrent ?? DEFAULT_MAX_CONCURRENT;
+    this.defaultTimeoutMs = limits?.defaultTimeoutMs ?? DEFAULT_TIMEOUT_MS;
   }
 
   async spawn(task: SubagentTask): Promise<SubagentResult> {
@@ -44,19 +57,19 @@ export class SubagentAdapter implements ISubagentPort {
       };
     }
 
-    if (this.active.size >= MAX_CONCURRENT) {
+    if (this.active.size >= this.maxConcurrent) {
       return {
         subagentId: '',
         text: '',
         success: false,
         stepsCompleted: 0,
-        error: `Max concurrent subagents (${MAX_CONCURRENT}) reached`,
+        error: `Max concurrent subagents (${this.maxConcurrent}) reached`,
       };
     }
 
     const id = generateId();
     const abort = new AbortController();
-    const timeoutMs = task.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const timeoutMs = task.timeoutMs ?? this.defaultTimeoutMs;
 
     const info: SubagentInfo = {
       id,

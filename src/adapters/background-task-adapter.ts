@@ -12,7 +12,7 @@ import type {
 } from '../ports/background-task.port';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
-const MAX_CONCURRENT = 5;
+const DEFAULT_MAX_CONCURRENT = 5;
 
 export class BackgroundTaskAdapter implements IBackgroundTaskPort {
   readonly eventBus = new TypedEventBus<BackgroundTaskEventMap>();
@@ -20,13 +20,18 @@ export class BackgroundTaskAdapter implements IBackgroundTaskPort {
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
   /** Reject handles to settle timeout promises eagerly on cancel/dispose */
   private readonly abortHandles = new Map<string, (reason: Error) => void>();
+  private readonly maxConcurrent: number;
+
+  constructor(limits?: { maxConcurrent?: number }) {
+    this.maxConcurrent = limits?.maxConcurrent ?? DEFAULT_MAX_CONCURRENT;
+  }
 
   enqueue(options: EnqueueOptions): string {
     const activeCount = [...this.tasks.values()].filter(
       (t) => t.status === 'running' || t.status === 'queued',
     ).length;
-    if (activeCount >= MAX_CONCURRENT) {
-      throw new Error(`Max concurrent tasks (${MAX_CONCURRENT}) reached`);
+    if (activeCount >= this.maxConcurrent) {
+      throw new Error(`Max concurrent tasks (${this.maxConcurrent}) reached`);
     }
 
     const id = crypto.randomUUID();
