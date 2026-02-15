@@ -165,6 +165,11 @@ describe('EcommerceAdapter', () => {
       price.textContent = '$29.99';
       document.body.appendChild(price);
 
+      const stock = document.createElement('span');
+      stock.className = 'in-stock';
+      stock.textContent = 'In Stock';
+      document.body.appendChild(stock);
+
       const result = await adapter.getProductInfo();
       expect(result).not.toBeNull();
       expect(result!.name).toBe('Test Product');
@@ -238,7 +243,7 @@ describe('EcommerceAdapter', () => {
       const container = addElement('div', { class: 'product__variants' });
       const select = document.createElement('select');
       const option = document.createElement('option');
-      option.value = CSS.escape('Large');
+      option.value = 'Large';
       option.textContent = 'Large';
       select.appendChild(option);
       container.appendChild(select);
@@ -246,7 +251,7 @@ describe('EcommerceAdapter', () => {
       select.addEventListener('change', changeSpy);
 
       await adapter.selectVariant('Large');
-      expect(select.value).toBe(CSS.escape('Large'));
+      expect(select.value).toBe('Large');
       expect(changeSpy).toHaveBeenCalled();
     });
 
@@ -273,21 +278,25 @@ describe('EcommerceAdapter', () => {
     });
 
     it('throws on quantity <= 0', async () => {
-      await expect(adapter.setQuantity(0)).rejects.toThrow('quantity must be a positive number');
+      await expect(adapter.setQuantity(0)).rejects.toThrow('quantity must be a positive integer');
     });
 
     it('throws on negative quantity', async () => {
-      await expect(adapter.setQuantity(-1)).rejects.toThrow('quantity must be a positive number');
+      await expect(adapter.setQuantity(-1)).rejects.toThrow('quantity must be a positive integer');
     });
 
     it('throws on NaN quantity', async () => {
-      await expect(adapter.setQuantity(NaN)).rejects.toThrow('quantity must be a positive number');
+      await expect(adapter.setQuantity(NaN)).rejects.toThrow('quantity must be a positive integer');
     });
 
     it('throws on Infinity quantity', async () => {
       await expect(adapter.setQuantity(Infinity)).rejects.toThrow(
-        'quantity must be a positive number',
+        'quantity must be a positive integer',
       );
+    });
+
+    it('throws on fractional quantity', async () => {
+      await expect(adapter.setQuantity(1.5)).rejects.toThrow('quantity must be a positive integer');
     });
 
     it('throws when quantity input not found', async () => {
@@ -365,7 +374,7 @@ describe('EcommerceAdapter', () => {
 
     it('throws on invalid quantity', async () => {
       await expect(adapter.updateCartQuantity('Widget', 0)).rejects.toThrow(
-        'quantity must be a positive number',
+        'quantity must be a positive integer',
       );
     });
 

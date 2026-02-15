@@ -19,8 +19,8 @@ export function requireNonEmpty(value: string, paramName: string): string {
 
 /** Validate quantity is a positive integer. */
 function requirePositiveQuantity(qty: number): void {
-  if (!Number.isFinite(qty) || qty < 1) {
-    throw new Error('quantity must be a positive number');
+  if (!Number.isFinite(qty) || qty < 1 || !Number.isInteger(qty)) {
+    throw new Error('quantity must be a positive integer');
   }
 }
 
@@ -181,18 +181,18 @@ export class EcommerceAdapter implements IEcommercePort {
     const inStockEl = queryFirst<HTMLElement>([
       '.in-stock',
       '.stock.in-stock',
-      '[data-hook="product-out-of-stock"]',
     ]);
     const outOfStockEl = queryFirst<HTMLElement>([
       '.out-of-stock',
       '.stock.out-of-stock',
+      '[data-hook="product-out-of-stock"]',
     ]);
 
     return {
       name: nameEl.textContent?.trim() ?? '',
       price: priceText,
       currency: currencyMatch?.[1] ?? '',
-      inStock: outOfStockEl === null && (inStockEl !== null || outOfStockEl === null),
+      inStock: outOfStockEl === null && inStockEl !== null,
       quantity: qtyInput ? parseInt(qtyInput.value, 10) || 1 : undefined,
       variants: variants.length > 0 ? variants : undefined,
     };
@@ -218,7 +218,7 @@ export class EcommerceAdapter implements IEcommercePort {
     const platform = this.detectPlatform();
     const select = queryFirst<HTMLSelectElement>(VARIANT_SELECTORS[platform]);
     if (!select) throw new Error(`Variant selector not found (platform: ${platform})`);
-    select.value = CSS.escape(safe);
+    select.value = safe;
     select.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
@@ -265,7 +265,7 @@ export class EcommerceAdapter implements IEcommercePort {
   }
 
   async removeFromCart(itemName: string): Promise<void> {
-    const safe = CSS.escape(requireNonEmpty(itemName, 'itemName'));
+    const safe = requireNonEmpty(itemName, 'itemName');
     const rows = document.querySelectorAll<HTMLElement>(
       '.cart-item, .cart_item, tr.woocommerce-cart-form__cart-item',
     );
@@ -332,12 +332,22 @@ export class EcommerceAdapter implements IEcommercePort {
 
   async filterByCategory(category: string): Promise<void> {
     const safe = CSS.escape(requireNonEmpty(category, 'category'));
-    const link = queryFirst<HTMLElement>([
+    let link = queryFirst<HTMLElement>([
       `a[href*="/collections/${safe}" i]`,
       `a[href*="/product-category/${safe}" i]`,
       `a[href*="/category/${safe}" i]`,
-      `.product-categories a:has(> :contains("${safe}"))`,
     ]);
+    // Fallback: find category link by text content
+    if (!link) {
+      const lowerCategory = category.trim().toLowerCase();
+      const candidates = document.querySelectorAll<HTMLAnchorElement>('.product-categories a, nav a, .categories a');
+      for (const a of candidates) {
+        if (a.textContent?.trim().toLowerCase() === lowerCategory) {
+          link = a;
+          break;
+        }
+      }
+    }
     if (!link) throw new Error(`Category "${category}" not found`);
     link.click();
   }
