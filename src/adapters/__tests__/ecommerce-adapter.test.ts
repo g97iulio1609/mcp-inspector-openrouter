@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { EcommerceAdapter, requireNonEmpty } from '../ecommerce-adapter';
-import type { EcommercePlatform } from '../../ports/ecommerce.port';
+import type { EcommercePlatform, ProductCreateData } from '../../ports/ecommerce.port';
 
 /**
  * Helper: reset DOM and window globals.
