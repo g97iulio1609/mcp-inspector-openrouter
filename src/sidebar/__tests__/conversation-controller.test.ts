@@ -73,6 +73,21 @@ describe('ConversationController', () => {
       const raw = JSON.parse(localStorage.getItem(STORAGE_KEY_CONVERSATIONS)!);
       expect(raw['example.com']).toHaveLength(1);
     });
+
+    it('does not leak previous conversation messages into the new chat', () => {
+      const { ctrl } = makeController();
+      const oldConv = Store.createConversation('example.com', 'Old chat');
+      Store.addMessage('example.com', oldConv.id, { role: 'user', content: 'old message' });
+      ctrl.switchToConversation(oldConv.id);
+      vi.clearAllMocks();
+
+      ctrl.createNewConversation();
+
+      const newConvMessages = Store.getMessages('example.com', ctrl.state.currentConvId!);
+      expect(newConvMessages).toEqual([]);
+      expect(ChatUI.clearChat).toHaveBeenCalledOnce();
+      expect(ChatUI.renderConversationWithActions).not.toHaveBeenCalled();
+    });
   });
 
   // 2. Delete Chat flow
@@ -199,6 +214,7 @@ describe('ConversationController', () => {
       const lastCall = (header.setConversations as ReturnType<typeof vi.fn>).mock.calls.at(-1)!;
       expect(lastCall[0]).toHaveLength(0);
       expect(lastCall[1]).toBeNull();
+      expect(ChatUI.renderConversationWithActions).not.toHaveBeenCalled();
     });
   });
 

@@ -18,6 +18,7 @@ vi.stubGlobal('chrome', {
 import { ConversationController, type ConversationState } from '../conversation-controller';
 import * as ChatUI from '../chat-ui';
 import * as Store from '../chat-store';
+import { AIChatController } from '../ai-chat-controller';
 
 // ── Helpers ──
 
@@ -123,10 +124,7 @@ describe('PlanManager.resetOnConversationChange', () => {
 // ── AIChatController.resetOnConversationChange ──
 
 describe('AIChatController.resetOnConversationChange', () => {
-  // Dynamically import to avoid triggering full module side-effects
-  it('clears activeMentions and lastSuggestedUserPrompt (pinnedConv is self-cleaning)', async () => {
-    const { AIChatController } = await import('../ai-chat-controller');
-
+  it('clears activeMentions and lastSuggestedUserPrompt (pinnedConv is self-cleaning)', () => {
     const ctrl = new AIChatController({
       chatInput: {} as any,
       chatHeader: {} as any,
@@ -150,7 +148,7 @@ describe('AIChatController.resetOnConversationChange', () => {
     expect((ctrl as any).lastSuggestedUserPrompt).toBe('');
     // pinnedConv is NOT reset — it self-cleans inside promptAI() to avoid mid-flight race conditions
     expect((ctrl as any).pinnedConv).toEqual({ site: 'x', convId: 'y' });
-  }, 15000);
+  });
 });
 
 // ── ConversationController integration with StateManager ──
