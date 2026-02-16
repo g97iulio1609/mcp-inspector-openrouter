@@ -323,7 +323,11 @@ toolTable.addEventListener('copy-tools', async (e): Promise<void> => {
 // Export manifest archive — fetch from content script and download as JSON
 toolTable.addEventListener('export-manifest', async (): Promise<void> => {
   const tab = await getCurrentTab();
-  if (!tab?.id) return;
+  if (!tab?.id || !tab.url) {
+    statusBar.message = 'Cannot export: no URL available';
+    statusBar.type = 'error';
+    return;
+  }
   try {
     const result = await chrome.tabs.sendMessage(tab.id, { action: 'GET_SITE_MANIFEST' }) as { manifest?: string; error?: string };
     if (result?.error || !result?.manifest) {
@@ -335,7 +339,7 @@ toolTable.addEventListener('export-manifest', async (): Promise<void> => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    const host = new URL(tab.url ?? '').hostname.replace(/\./g, '_');
+    const host = new URL(tab.url).hostname.replace(/\./g, '_');
     a.download = `wmcp-manifest-${host}.json`;
     a.click();
     URL.revokeObjectURL(url);

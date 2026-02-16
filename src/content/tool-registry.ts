@@ -242,9 +242,10 @@ export class ToolRegistry {
       declarative: cleanTools.filter((t) => t._source === 'declarative')
         .length,
       inferred: cleanTools.filter((t) => t._source === 'inferred').length,
+      manifest: cleanTools.filter((t) => t._source === 'manifest').length,
     };
     console.debug(
-      `[WebMCP] ${cleanTools.length} tools (${sources.native}N + ${sources.declarative}D + ${sources.inferred}I)`,
+      `[WebMCP] ${cleanTools.length} tools (${sources.native}N + ${sources.declarative}D + ${sources.inferred}I + ${sources.manifest}M)`,
       cleanTools,
     );
 
