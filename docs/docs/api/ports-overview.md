@@ -22,6 +22,7 @@ The hexagonal architecture defines **20+ stable port interfaces** that decouple 
 | [`IProductivityPort`](./productivity-port) | `productivity.port.ts` | Notion, GitHub, Google Docs, Trello, Slack |
 | [`IToolManifestPort`](./tool-manifest-port) | `tool-manifest.port.ts` | Auto-generated MCP tool manifests |
 | [`IGesturePort`](./gesture-port) | `gesture.port.ts` | Touch gesture simulation |
+| [`ITabDelegationPort`](./tab-delegation-port) | `tab-delegation.port.ts` | Agent-to-Agent (A2A) tab delegation |
 | [`IWmcpServerPort`](./wmcp-server) | `wmcp-server.port.ts` | WebMCP manifest injection and event protocol |
 
 ## Dependency Flow
