@@ -65,17 +65,17 @@ export class ChatHeader extends BaseElement {
       <div class="chat-header">
         <select @change=${this._onConversationChange}>
           ${this.conversations.length === 0
-            ? html`<option disabled selected value="">No conversations</option>`
+            ? html`<option disabled selected value="">No chats yet</option>`
             : nothing}
           ${this.conversations.map(c => html`
             <option value=${c.id} ?selected=${c.id === this.activeConversationId}>${c.title}</option>
           `)}
         </select>
-        <button class="icon-btn" title="New chat" @click=${this._onNewChat}>＋</button>
-        <button class="icon-btn danger" title="Delete conversation" @click=${this._onDeleteChat}>🗑</button>
+        <button class="icon-btn" title="Start new chat" @click=${this._onNewChat}>＋</button>
+        <button class="icon-btn danger" title="Delete this chat" @click=${this._onDeleteChat}>🗑</button>
         <button class="plan-mode-toggle icon-btn ${this.planActive ? 'active' : ''}"
-          title="Toggle plan mode" @click=${this._onTogglePlan}>
-          ${unsafeHTML(ICONS.clipboard)} Plan
+          title="Step-by-step mode" @click=${this._onTogglePlan}>
+          ${unsafeHTML(ICONS.clipboard)} Plan steps
         </button>
       </div>
     `;
@@ -85,8 +85,8 @@ export class ChatHeader extends BaseElement {
     return html`
       ${this.showApiKeyHint
         ? html`<div class="api-key-hint">
-            ⚠️ API key not configured.
-            <a href="#" @click=${this._onOpenOptions}>Open extension settings</a> to set it up.
+            ⚠️ Setup needed before you can chat.
+            <a href="#" @click=${this._onOpenOptions}>Open settings</a> to finish setup.
           </div>`
         : nothing}
       ${this._renderToolbar()}

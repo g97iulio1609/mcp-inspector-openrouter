@@ -1,7 +1,6 @@
 /** Sidebar entry — thin controller wiring up all modules. */
 
 import '../components/theme-provider';
-import '../components/tab-navigator';
 import '../components/tab-session-indicator';
 import '../components/chat-container';
 import '../components/chat-header';
@@ -14,7 +13,6 @@ import type { ChatInput } from '../components/chat-input';
 import type { StatusBar } from '../components/status-bar';
 import type { ToolTable } from '../components/tool-table';
 import type { ManifestDashboard } from '../components/manifest-dashboard';
-import type { TabNavigator } from '../components/tab-navigator';
 import type { TabSessionIndicator } from '../components/tab-session-indicator';
 import type { CleanTool } from '../types';
 import { STORAGE_KEY_LOCK_MODE, STORAGE_KEY_PLAN_MODE } from '../utils/constants';
@@ -38,29 +36,30 @@ const lockLabel = $<HTMLSpanElement>('lockLabel');
 const chatContainer = $<HTMLElement>('chatContainer');
 const chatHeader = $<ChatHeader>('chatHeader');
 const chatInput = $<ChatInput>('chatInput');
-const tabNavigator = $<TabNavigator>('tabNavigator');
+const chatAdvancedSection = $<HTMLElement>('chatAdvancedSection');
+const chatAdvancedDetails = $<HTMLDetailsElement>('chatAdvancedDetails');
 const sessionIndicator = $<TabSessionIndicator>('sessionIndicator');
 const manifestDashboard = $<ManifestDashboard>('manifestDashboard');
+const CHAT_ADVANCED_FLAG_KEY = 'wmcp_chat_advanced_enabled';
+
+function isChatAdvancedEnabled(): boolean {
+  return localStorage.getItem(CHAT_ADVANCED_FLAG_KEY) !== 'false';
+}
+
+chatAdvancedSection.hidden = !isChatAdvancedEnabled();
+window.addEventListener('storage', (e) => {
+  if (e.key === CHAT_ADVANCED_FLAG_KEY) {
+    chatAdvancedSection.hidden = !isChatAdvancedEnabled();
+  }
+});
 
 // Shared tab session adapter — tracks per-browser-tab context
 const tabSession = new TabSessionAdapter();
 tabSession.startSession();
 
-// Configure tab navigator with tab definitions
-tabNavigator.tabs = [
-  { id: 'tools', label: 'Tools', icon: ICONS.wrench },
-  { id: 'manifest', label: 'Manifest', icon: ICONS.clipboard },
-  { id: 'chat', label: 'Chat', icon: ICONS.chat },
-];
-tabNavigator.activeTab = 'tools';
-
-// Tab switching via <tab-navigator> component
-const tabPanels = document.querySelectorAll<HTMLDivElement>('.tab-panel');
-tabNavigator.addEventListener('tab-change', ((e: CustomEvent) => {
-  const target = e.detail.tab;
-  tabPanels.forEach((p) => p.classList.toggle('active', p.id === `tab-${target}`));
-  if (target === 'manifest') void loadManifest();
-}) as EventListener);
+chatAdvancedDetails.addEventListener('toggle', () => {
+  if (chatAdvancedDetails.open) void loadManifest();
+});
 
 // ── Manifest dashboard wiring ──
 
@@ -79,6 +78,7 @@ async function loadManifest(): Promise<void> {
     if (result?.error) {
       manifestDashboard.error = result.error;
     } else {
+      manifestDashboard.error = '';
       manifestDashboard.manifestJson = result?.manifest ?? '';
     }
   } catch (err) {
@@ -133,7 +133,7 @@ const savedLock = localStorage.getItem(STORAGE_KEY_LOCK_MODE) === 'true';
 lockToggle.checked = savedLock;
 updateLockUI(savedLock);
 function updateLockUI(locked: boolean): void {
-  lockLabel.innerHTML = locked ? `${ICONS.lock} Locked` : `${ICONS.unlock} Live`;
+  lockLabel.innerHTML = locked ? `${ICONS.lock} Paused` : `${ICONS.unlock} Ready`;
   lockLabel.className = locked ? 'lock-label locked' : 'lock-label live';
 }
 lockToggle.onchange = async (): Promise<void> => {
@@ -223,7 +223,7 @@ function updateSessionIndicator(activeTabId?: number): void {
     await chrome.tabs.sendMessage(tab.id, { action: 'SET_LOCK_MODE', inputArgs: { locked: lockToggle.checked } });
     convCtrl.loadConversations();
   } catch (error) {
-    statusBar.message = `Initialization error: ${(error as Error).message}`;
+    statusBar.message = `Couldn't start advanced controls: ${(error as Error).message}`;
     statusBar.type = 'error';
   }
 })();
@@ -288,7 +288,7 @@ chrome.runtime.onMessage.addListener(
       securityDialogEl.show({
         toolName: payload.toolName,
         securityTier: payload.tier,
-        details: `This tool performs a ${payload.tier === 2 ? 'mutation' : 'navigation'} action: ${payload.description || payload.toolName}. Are you sure you want to execute it?`,
+        details: `This action may ${payload.tier === 2 ? 'change data on this page' : 'move to another page area'}: ${payload.description || payload.toolName}. Continue?`,
       });
       // Wire one-shot event listeners for legacy chrome.tabs messaging
       const tabId = sender.tab?.id;
@@ -306,10 +306,10 @@ chrome.runtime.onMessage.addListener(
     currentTools = msg.tools ?? [];
     toolTable.tools = currentTools;
     toolTable.statusMessage = msg.message ?? '';
-    statusBar.message = msg.message ?? '';
-    statusBar.type = 'info';
     toolTable.pageUrl = msg.url ?? tab?.url ?? '';
     toolTable.loading = false;
+    statusBar.message = msg.message ?? '';
+    statusBar.type = 'info';
     if (haveNewTools) void aiChat.suggestUserPrompt();
   },
 );
@@ -324,14 +324,14 @@ toolTable.addEventListener('copy-tools', async (e): Promise<void> => {
 toolTable.addEventListener('export-manifest', async (): Promise<void> => {
   const tab = await getCurrentTab();
   if (!tab?.id || !tab.url) {
-    statusBar.message = 'Cannot export: no URL available';
+    statusBar.message = "Can't download report: page address not available";
     statusBar.type = 'error';
     return;
   }
   try {
     const result = await chrome.tabs.sendMessage(tab.id, { action: 'GET_SITE_MANIFEST' }) as { manifest?: string; error?: string };
     if (result?.error || !result?.manifest) {
-      statusBar.message = result?.error ?? 'No manifest available';
+      statusBar.message = result?.error ?? 'No page action report available';
       statusBar.type = 'error';
       return;
     }
@@ -343,10 +343,10 @@ toolTable.addEventListener('export-manifest', async (): Promise<void> => {
     a.download = `wmcp-manifest-${host}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    statusBar.message = 'Manifest exported';
+    statusBar.message = 'Page action report downloaded';
     statusBar.type = 'info';
   } catch {
-    statusBar.message = 'Failed to export manifest';
+    statusBar.message = "Couldn't download page action report";
     statusBar.type = 'error';
   }
 });

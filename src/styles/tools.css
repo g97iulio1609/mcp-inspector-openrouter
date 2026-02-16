@@ -20,8 +20,8 @@
   white-space: nowrap;
 }
 
-.lock-label.live   { color: var(--success); }
-.lock-label.locked { color: var(--error); }
+.lock-label.live   { color: var(--color-success); }
+.lock-label.locked { color: var(--color-error); }
 
 .toggle-switch {
   position: relative;
@@ -41,7 +41,7 @@
   position: absolute;
   cursor: pointer;
   top: 0; left: 0; right: 0; bottom: 0;
-  background-color: var(--success);
+  background-color: var(--color-success);
   transition: 0.3s;
   border-radius: 20px;
 }
@@ -59,7 +59,7 @@
 }
 
 input:checked+.toggle-slider {
-  background-color: var(--error);
+  background-color: var(--color-error);
 }
 
 input:checked+.toggle-slider:before {
@@ -70,8 +70,8 @@ input:checked+.toggle-slider:before {
 .table-container {
   margin-bottom: 12px;
   overflow-x: auto;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
+  border-radius: var(--radius-2);
+  border: 1px solid var(--color-border-default);
   overflow-y: auto;
   max-height: 400px;
   display: block;
@@ -85,17 +85,17 @@ table {
   width: 100%;
   border-collapse: collapse;
   font-size: 11px;
-  background: var(--bg-card);
+  background: var(--color-surface-card);
 }
 
 th, td {
   text-align: left;
   padding: 8px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--color-border-default);
 }
 
 th {
-  background-color: var(--bg-elevated);
+  background-color: var(--color-surface-elevated);
   font-weight: 600;
   position: sticky;
   top: 0;
@@ -107,15 +107,15 @@ tr:nth-child(even) { background-color: rgba(0,0,0,0.015); }
 tbody pre { white-space: normal; }
 tbody.prettify pre { white-space: pre-wrap; }
 
-#copyToClipboard { padding: 6px; }
-#copyToClipboard span:hover { text-decoration: underline; cursor: pointer; }
+.copy-to-clipboard { padding: 6px; }
+.copy-to-clipboard span:hover { text-decoration: underline; cursor: pointer; }
 
-#toolResults {
-  background: #1a1a2e;
-  color: #e0e0e0;
+.tool-results {
+  background: var(--color-console-bg);
+  color: var(--color-console-text);
   line-height: 1.8;
   padding: 8px 10px;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-1);
   white-space: break-spaces;
   word-break: break-all;
   max-height: 200px;
@@ -155,7 +155,7 @@ tbody.prettify pre { white-space: pre-wrap; }
 .confidence-bar-track {
   width: 40px;
   height: 5px;
-  background: var(--border);
+  background: var(--color-border-default);
   border-radius: 3px;
   overflow: hidden;
 }
@@ -173,25 +173,25 @@ tbody.prettify pre { white-space: pre-wrap; }
 /* ── Category grouping ── */
 .category-label {
   font-size: 10px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   font-style: italic;
 }
 
 .category-group-header {
-  background-color: var(--bg-elevated) !important;
+  background-color: var(--color-surface-elevated) !important;
 }
 
 .category-group-header td {
   padding: 6px 10px;
-  border-top: 2px solid var(--border);
-  border-bottom: 2px solid var(--border);
+  border-top: 2px solid var(--color-border-default);
+  border-bottom: 2px solid var(--color-border-default);
 }
 
 .category-group-name {
   font-weight: 800;
   font-size: 10px;
   text-transform: uppercase;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   letter-spacing: 0.05em;
   display: inline-flex;
   align-items: center;
@@ -205,7 +205,7 @@ tbody.prettify pre { white-space: pre-wrap; }
 
 .category-group-count {
   background: #d1d5db;
-  color: var(--text);
+  color: var(--color-text-primary);
   padding: 1px 6px;
   border-radius: 10px;
   font-size: 9px;
@@ -219,12 +219,12 @@ tbody.prettify pre { white-space: pre-wrap; }
 
 /* ── Navigation sub-group (section headers) ── */
 .category-subgroup-header {
-  background-color: var(--bg-card) !important;
+  background-color: var(--color-surface-card) !important;
 }
 
 .category-subgroup-header td {
   padding: 4px 10px 4px 20px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--color-border-default);
 }
 
 .subgroup-icon {
@@ -235,7 +235,7 @@ tbody.prettify pre { white-space: pre-wrap; }
   font-weight: 700;
   font-size: 10px;
   text-transform: capitalize;
-  color: var(--primary);
+  color: var(--color-brand-500);
   letter-spacing: 0.03em;
 }
 
@@ -243,7 +243,7 @@ tbody.prettify pre { white-space: pre-wrap; }
 [data-theme="dark"] {
   tr:nth-child(even) { background-color: rgba(255,255,255,0.03); }
 
-  #toolResults {
+  .tool-results {
     background: #000;
     border: 1px solid #333;
   }

@@ -19,7 +19,7 @@ export class ChatInput extends BaseElement {
   constructor() {
     super();
     this.disabled = false;
-    this.placeholder = 'Send a message...';
+    this.placeholder = 'Type your question...';
     this._hasContent = false;
   }
 
@@ -78,14 +78,14 @@ export class ChatInput extends BaseElement {
           @keydown=${this._onKeydown}
         ></textarea>
         <button
-          title="Send"
+          title="Send message"
           ?disabled=${this.disabled || !this._hasContent}
           @click=${this._onSend}
         >▶</button>
       </div>
       <div class="chat-input-actions">
-        <button class="secondary small" @click=${this._onCopyTrace}>Copy trace</button>
-        <button class="secondary small" title="Download debug log" @click=${this._onDownloadDebug}>🐛 Debug log</button>
+        <button class="secondary small" @click=${this._onCopyTrace}>Copy conversation details</button>
+        <button class="secondary small" title="Download support file" @click=${this._onDownloadDebug}>🐛 Support file</button>
       </div>
     `;
   }

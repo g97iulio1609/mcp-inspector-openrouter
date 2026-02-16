@@ -105,33 +105,33 @@ export class ChatBubble extends BaseElement {
 
     if (this._editing) {
       const rows = Math.min(6, Math.max(2, this.content.split('\n').length));
-      return html`<div class="bubble-body"><textarea class="bubble-edit-input" .value=${this.content} rows=${rows}></textarea><div class="bubble-edit-btns"><button class="bubble-edit-save" @click=${this._saveEdit}>${unsafeHTML(ICONS.check)} Save</button><button class="bubble-edit-cancel" @click=${this._cancelEdit}>${unsafeHTML(ICONS.x)} Cancel</button></div></div><div class="bubble-time">${time}</div>`;
+      return html`<div class="bubble-body"><textarea class="bubble-edit-input" .value=${this.content} rows=${rows}></textarea><div class="bubble-edit-btns"><button class="bubble-edit-save" @click=${this._saveEdit}>${unsafeHTML(ICONS.check)} Save changes</button><button class="bubble-edit-cancel" @click=${this._cancelEdit}>${unsafeHTML(ICONS.x)} Discard changes</button></div></div><div class="bubble-time">${time}</div>`;
     }
 
     switch (this.role) {
       case 'user':
-        return html`<div class="bubble-body">${this.content}</div><div class="bubble-time">${time}</div>${this.editable ? html`<div class="bubble-actions"><button class="bubble-action-btn" title="Edit message" @click=${this._startEdit}>${unsafeHTML(ICONS.edit)}</button><button class="bubble-action-btn" title="Delete this and all subsequent messages" @click=${this._handleDelete}>${unsafeHTML(ICONS.trash)}</button></div>` : nothing}`;
+        return html`<div class="bubble-body">${this.content}</div><div class="bubble-time">${time}</div>${this.editable ? html`<div class="bubble-actions"><button class="bubble-action-btn" title="Edit your message" @click=${this._startEdit}>${unsafeHTML(ICONS.edit)}</button><button class="bubble-action-btn" title="Delete this message and everything after it" @click=${this._handleDelete}>${unsafeHTML(ICONS.trash)}</button></div>` : nothing}`;
 
       case 'ai':
         if (this.reasoning && this.content) {
-          return html`<div class="bubble-body"><reasoning-accordion .content=${this.reasoning}></reasoning-accordion><div>${unsafeHTML(formatAIText(this.content))}</div></div><div class="bubble-time">${time}</div>${this.editable ? html`<div class="bubble-actions"><button class="bubble-action-btn" title="Delete this and all subsequent messages" @click=${this._handleDelete}>${unsafeHTML(ICONS.trash)}</button></div>` : nothing}`;
+          return html`<div class="bubble-body"><reasoning-accordion .content=${this.reasoning}></reasoning-accordion><div>${unsafeHTML(formatAIText(this.content))}</div></div><div class="bubble-time">${time}</div>${this.editable ? html`<div class="bubble-actions"><button class="bubble-action-btn" title="Delete this message and everything after it" @click=${this._handleDelete}>${unsafeHTML(ICONS.trash)}</button></div>` : nothing}`;
         }
         if (this.reasoning && !this.content) {
-          return html`<div class="bubble-body"><reasoning-accordion .content=${this.reasoning}></reasoning-accordion><div class="reasoning-notice">${unsafeHTML(ICONS.alertTriangle)} The model used all output tokens for reasoning. Check the reasoning above for details.</div></div><div class="bubble-time">${time}</div>${this.editable ? html`<div class="bubble-actions"><button class="bubble-action-btn" title="Delete this and all subsequent messages" @click=${this._handleDelete}>${unsafeHTML(ICONS.trash)}</button></div>` : nothing}`;
+          return html`<div class="bubble-body"><reasoning-accordion .content=${this.reasoning}></reasoning-accordion><div class="reasoning-notice">${unsafeHTML(ICONS.alertTriangle)} I used my full response on thinking steps. Please review "How I worked this out" above.</div></div><div class="bubble-time">${time}</div>${this.editable ? html`<div class="bubble-actions"><button class="bubble-action-btn" title="Delete this message and everything after it" @click=${this._handleDelete}>${unsafeHTML(ICONS.trash)}</button></div>` : nothing}`;
         }
-        return html`<div class="bubble-body"><div>${unsafeHTML(formatAIText(this.content))}</div></div><div class="bubble-time">${time}</div>${this.editable ? html`<div class="bubble-actions"><button class="bubble-action-btn" title="Delete this and all subsequent messages" @click=${this._handleDelete}>${unsafeHTML(ICONS.trash)}</button></div>` : nothing}`;
+        return html`<div class="bubble-body"><div>${unsafeHTML(formatAIText(this.content))}</div></div><div class="bubble-time">${time}</div>${this.editable ? html`<div class="bubble-actions"><button class="bubble-action-btn" title="Delete this message and everything after it" @click=${this._handleDelete}>${unsafeHTML(ICONS.trash)}</button></div>` : nothing}`;
 
       case 'tool_call':
-        return html`<div class="bubble-body"><span class="tool-icon">${unsafeHTML(ICONS.zap)}</span> <strong>${this.toolName}</strong> <code>${JSON.stringify(this.toolArgs)}</code></div><div class="bubble-time">${time}</div>${this.editable ? html`<div class="bubble-actions"><button class="bubble-action-btn" title="Delete this and all subsequent messages" @click=${this._handleDelete}>${unsafeHTML(ICONS.trash)}</button></div>` : nothing}`;
+        return html`<div class="bubble-body"><span class="tool-icon">${unsafeHTML(ICONS.zap)}</span> <strong>${this.toolName}</strong> <code>${JSON.stringify(this.toolArgs)}</code></div><div class="bubble-time">${time}</div>${this.editable ? html`<div class="bubble-actions"><button class="bubble-action-btn" title="Delete this message and everything after it" @click=${this._handleDelete}>${unsafeHTML(ICONS.trash)}</button></div>` : nothing}`;
 
       case 'tool_result':
-        return html`<div class="bubble-body"><span class="tool-icon">${unsafeHTML(ICONS.checkCircle)}</span> <strong>${this.toolName}</strong> → <code>${this.content}</code></div><div class="bubble-time">${time}</div>${this.editable ? html`<div class="bubble-actions"><button class="bubble-action-btn" title="Delete this and all subsequent messages" @click=${this._handleDelete}>${unsafeHTML(ICONS.trash)}</button></div>` : nothing}`;
+        return html`<div class="bubble-body"><span class="tool-icon">${unsafeHTML(ICONS.checkCircle)}</span> <strong>${this.toolName}</strong> → <code>${this.content}</code></div><div class="bubble-time">${time}</div>${this.editable ? html`<div class="bubble-actions"><button class="bubble-action-btn" title="Delete this message and everything after it" @click=${this._handleDelete}>${unsafeHTML(ICONS.trash)}</button></div>` : nothing}`;
 
       case 'tool_error':
-        return html`<div class="bubble-body"><span class="tool-icon">${unsafeHTML(ICONS.xCircle)}</span> <strong>${this.toolName}</strong> → <code>${this.content}</code></div><div class="bubble-time">${time}</div>${this.editable ? html`<div class="bubble-actions"><button class="bubble-action-btn" title="Delete this and all subsequent messages" @click=${this._handleDelete}>${unsafeHTML(ICONS.trash)}</button></div>` : nothing}`;
+        return html`<div class="bubble-body"><span class="tool-icon">${unsafeHTML(ICONS.xCircle)}</span> <strong>${this.toolName}</strong> → <code>${this.content}</code></div><div class="bubble-time">${time}</div>${this.editable ? html`<div class="bubble-actions"><button class="bubble-action-btn" title="Delete this message and everything after it" @click=${this._handleDelete}>${unsafeHTML(ICONS.trash)}</button></div>` : nothing}`;
 
       case 'error':
-        return html`<div class="bubble-body"><span class="tool-icon">${unsafeHTML(ICONS.alertTriangle)}</span> ${this.content}</div><div class="bubble-time">${time}</div>${this.editable ? html`<div class="bubble-actions"><button class="bubble-action-btn" title="Delete this and all subsequent messages" @click=${this._handleDelete}>${unsafeHTML(ICONS.trash)}</button></div>` : nothing}`;
+        return html`<div class="bubble-body"><span class="tool-icon">${unsafeHTML(ICONS.alertTriangle)}</span> ${this.content}</div><div class="bubble-time">${time}</div>${this.editable ? html`<div class="bubble-actions"><button class="bubble-action-btn" title="Delete this message and everything after it" @click=${this._handleDelete}>${unsafeHTML(ICONS.trash)}</button></div>` : nothing}`;
 
       default:
         return html`<div class="bubble-body">${this.content}</div><div class="bubble-time">${time}</div>`;

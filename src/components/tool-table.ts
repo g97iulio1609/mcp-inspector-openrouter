@@ -8,6 +8,8 @@ import { generateTemplateFromSchema, type JsonSchema } from '../sidebar/config-b
 import { toolsAsScriptToolConfig, toolsAsJSON } from '../sidebar/tool-list-handler';
 import type { CleanTool } from '../types';
 
+let toolTableInstanceCounter = 0;
+
 export class ToolTable extends BaseElement {
   static properties = {
     tools: { type: Array },
@@ -28,6 +30,7 @@ export class ToolTable extends BaseElement {
   declare _selectedTool: string;
   declare _inputArgs: string;
   declare _toolResults: string;
+  declare _instanceId: string;
 
   constructor() {
     super();
@@ -39,6 +42,7 @@ export class ToolTable extends BaseElement {
     this._selectedTool = '';
     this._inputArgs = '{"text": "hello world"}';
     this._toolResults = '';
+    this._instanceId = `tool-table-${toolTableInstanceCounter++}`;
   }
 
   override createRenderRoot(): this {
@@ -70,6 +74,10 @@ export class ToolTable extends BaseElement {
     );
   }
 
+  private _elId(name: string): string {
+    return `${name}-${this._instanceId}`;
+  }
+
   // ── Render sections ──
 
   private _renderStatus(): unknown {
@@ -79,8 +87,8 @@ export class ToolTable extends BaseElement {
 
   private _renderEmptyState(): unknown {
     return html`<tr><td colspan="100%"><i>${this.loading
-      ? 'Loading tools...'
-      : `No tools registered yet in ${this.pageUrl}`}</i></td></tr>`;
+      ? 'Finding actions you can use…'
+      : `No actions found on this page yet (${this.pageUrl}).`}</i></td></tr>`;
   }
 
   private _renderCategoryHeader(category: string, count: number): unknown {
@@ -155,10 +163,10 @@ export class ToolTable extends BaseElement {
     const hasTools = this.tools.length > 0;
     return html`
       <div class="table-container">
-        <table id="resultsTable">
+        <table id=${this._elId('resultsTable')}>
           <thead>
             <tr>
-              ${hasTools ? html`<th>Source</th><th>Name</th><th>Description</th><th>Confidence</th>` : nothing}
+              ${hasTools ? html`<th>Type</th><th>Action</th><th>What it does</th><th>Match</th>` : nothing}
             </tr>
           </thead>
           <tbody class="${this.prettify ? 'prettify' : ''}" @dblclick=${this._onTogglePrettify}>
@@ -172,10 +180,10 @@ export class ToolTable extends BaseElement {
           </tbody>
         </table>
         ${hasTools ? html`
-          <div id="copyToClipboard">
-            <span @click=${() => this._onCopy('script')}>📝 Copy as ScriptToolConfig</span>
-            <span @click=${() => this._onCopy('json')}>📝 Copy as JSON</span>
-            <span @click=${this._onExportManifest}>📦 Export Manifest Archive</span>
+          <div class="copy-to-clipboard">
+            <span @click=${this._onCopyScript}>📝 Copy for setup</span>
+            <span @click=${this._onCopyJson}>📝 Copy as data</span>
+            <span @click=${this._onExportManifest}>📦 Download page action report</span>
           </div>` : nothing}
       </div>`;
   }
@@ -190,12 +198,16 @@ export class ToolTable extends BaseElement {
   private _renderManualExecution(): unknown {
     const grouped = this._grouped();
     const hasTools = this.tools.length > 0;
+    const toolNamesId = this._elId('toolNames');
+    const inputArgsTextId = this._elId('inputArgsText');
+    const executeBtnId = this._elId('executeBtn');
+    const toolResultsId = this._elId('toolResults');
     return html`
       <div class="card">
-        <div class="card-title">Manual Tool Execution</div>
+        <div class="card-title">Run an action manually</div>
         <div class="form-group">
-          <label for="toolNames">Tool</label>
-          <select id="toolNames" ?disabled=${!hasTools} @change=${this._onToolChange}>
+          <label for=${toolNamesId}>Action</label>
+          <select id=${toolNamesId} ?disabled=${!hasTools} @change=${this._onToolChange}>
             ${Array.from(grouped).map(([category, items]) => html`
               <optgroup label=${category}>
                 ${items.map(item => this._renderToolOption(item))}
@@ -203,15 +215,15 @@ export class ToolTable extends BaseElement {
           </select>
         </div>
         <div class="form-group">
-          <label for="inputArgsText">Input Arguments</label>
-          <textarea id="inputArgsText" ?disabled=${!hasTools}
+          <label for=${inputArgsTextId}>Action details</label>
+          <textarea id=${inputArgsTextId} ?disabled=${!hasTools}
             .value=${this._inputArgs}
             @input=${this._onInputArgsChange}></textarea>
         </div>
         <div class="form-group">
-          <button id="executeBtn" ?disabled=${!hasTools} @click=${this._onExecute}>Execute Tool</button>
+          <button id=${executeBtnId} ?disabled=${!hasTools} @click=${this._onExecute}>Run action</button>
         </div>
-        <pre id="toolResults">${this._toolResults}</pre>
+        <pre id=${toolResultsId} class="tool-results">${this._toolResults}</pre>
       </div>`;
   }
 
@@ -254,6 +266,14 @@ export class ToolTable extends BaseElement {
       composed: true,
       detail: { format },
     }));
+  }
+
+  private _onCopyScript(): void {
+    this._onCopy('script');
+  }
+
+  private _onCopyJson(): void {
+    this._onCopy('json');
   }
 
   private _onExportManifest(): void {

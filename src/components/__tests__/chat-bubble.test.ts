@@ -69,7 +69,7 @@ describe('ChatBubble', () => {
     el = await createBubble({ role: 'ai', content: '', reasoning: 'Deep thought' });
     const notice = el.querySelector('.reasoning-notice');
     expect(notice).toBeTruthy();
-    expect(notice!.textContent).toContain('reasoning');
+    expect(notice!.textContent).toContain('thinking steps');
   });
 
   it('renders tool_call bubble with tool name and args', async () => {

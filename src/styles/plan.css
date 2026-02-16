@@ -1,8 +1,8 @@
 /* ── Plan Mode ── */
 .plan-block {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-3);
   padding: 0;
   margin: 8px 0;
   overflow: hidden;
@@ -25,7 +25,7 @@
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
-  background: linear-gradient(135deg, var(--primary), #4f86f7);
+  background: linear-gradient(135deg, var(--color-brand-500), #4f86f7);
   color: #fff;
   cursor: default;
 }
@@ -54,7 +54,7 @@
   font-size: 10px;
   padding: 3px 6px;
   border-radius: 4px;
-  transition: background var(--transition-fast);
+  transition: background var(--motion-fast);
 }
 
 .plan-toggle-btn:hover {
@@ -74,17 +74,17 @@
 }
 
 .plan-step--done .plan-step-title {
-  color: var(--success);
+  color: var(--color-success);
 }
 
 .plan-step--failed .plan-step-title {
   text-decoration: line-through;
-  color: var(--error);
+  color: var(--color-error);
 }
 
 .plan-step--in_progress {
   background: var(--primary-soft);
-  border-left: 2px solid var(--primary);
+  border-left: 2px solid var(--color-brand-500);
 }
 
 .plan-step-row {
@@ -92,7 +92,7 @@
   align-items: center;
   gap: 6px;
   padding: 5px 12px;
-  transition: background var(--transition-fast);
+  transition: background var(--motion-fast);
 }
 
 .plan-step-row:hover {
@@ -113,25 +113,25 @@
 
 .plan-step-title {
   font-size: 11.5px;
-  color: var(--text);
+  color: var(--color-text-primary);
   transition: color 0.3s ease;
 }
 
 .plan-step-detail {
   font-size: 10px;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   margin-left: auto;
   max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  background: var(--bg-elevated);
+  background: var(--color-surface-elevated);
   padding: 1px 6px;
   border-radius: 8px;
 }
 
 .plan-step-children {
-  border-left: 2px dashed var(--border);
+  border-left: 2px dashed var(--color-border-default);
   margin-left: 18px;
 }
 
@@ -142,25 +142,25 @@
   gap: 4px;
   padding: 4px 10px;
   border-radius: 14px;
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  color: var(--text-secondary);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-surface-card);
+  color: var(--color-text-secondary);
   cursor: pointer;
   font-size: 10px;
   font-weight: 600;
   font-family: var(--font);
-  transition: all var(--transition);
+  transition: all var(--motion-base);
 }
 
 .plan-mode-toggle:hover {
-  border-color: var(--primary);
-  color: var(--primary);
+  border-color: var(--color-brand-500);
+  color: var(--color-brand-500);
 }
 
 .plan-mode-toggle.active {
-  background: linear-gradient(135deg, var(--primary), #4f86f7);
+  background: linear-gradient(135deg, var(--color-brand-500), #4f86f7);
   color: white;
-  border-color: var(--primary);
+  border-color: var(--color-brand-500);
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
 }
 

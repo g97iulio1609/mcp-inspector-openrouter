@@ -113,7 +113,7 @@ export class AIChatController implements IResettable {
         await this.promptAI(message);
       } catch (error) {
         convCtrl.state.trace.push({ error });
-        convCtrl.addAndRender('error', `⚠️ Error: "${error}"`, {}, this.pinnedConv ?? undefined);
+        convCtrl.addAndRender('error', 'Sorry, something went wrong. Please try again.', {}, this.pinnedConv ?? undefined);
       }
     });
 
@@ -452,10 +452,10 @@ export class AIChatController implements IResettable {
           convCtrl.addAndRender('ai', event.text, { reasoning: event.reasoning }, pinnedConv);
           break;
         case 'timeout':
-          convCtrl.addAndRender('error', '⚠️ Tool execution loop timed out after 60s.', {}, pinnedConv);
+          convCtrl.addAndRender('error', 'This took too long and was stopped. Please try again.', {}, pinnedConv);
           break;
         case 'max_iterations':
-          convCtrl.addAndRender('error', '⚠️ Reached maximum tool iterations (10).', {}, pinnedConv);
+          convCtrl.addAndRender('error', 'I hit an internal step limit and had to stop.', {}, pinnedConv);
           break;
         case 'navigation':
           logger.info('Orchestrator', `Navigation detected (${event.toolName})`);

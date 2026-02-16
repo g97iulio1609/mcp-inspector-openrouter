@@ -51,7 +51,7 @@ describe('ChatInput', () => {
     el = await createElement();
     expect(el.disabled).toBe(false);
     expect(el.value).toBe('');
-    expect(el.placeholder).toBe('Send a message...');
+    expect(el.placeholder).toBe('Type your question...');
     expect(el.classList.contains('chat-input-area')).toBe(true);
   });
 
