@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # Ports Overview
 
-The hexagonal architecture defines **14 key port interfaces** (with additional specialized ports) that decouple the domain from infrastructure. Each port is a TypeScript interface in `src/ports/`.
+The hexagonal architecture defines **key port interfaces** that decouple the domain from infrastructure. Each port is a TypeScript interface in `src/ports/`. The table below shows a curated subset of the most commonly used ports.
 
 ## Port Summary
 
@@ -36,10 +36,7 @@ AIChatController
         ├─ IContextPort         → ChromeContextAdapter
         ├─ IContextManagerPort  → ContextManagerAdapter
         ├─ ITabSessionPort      → TabSessionAdapter
-        ├─ ITabDelegationPort   → TabDelegationAdapter
-        ├─ IToolCachePort       → IndexedDBToolCacheAdapter
-        ├─ ICrawlerPort         → SemanticCrawlerAdapter
-        └─ IInstagramPort       → InstagramAdapter
+        └─ ITabDelegationPort   → TabDelegationAdapter
 ```
 
 All ports are defined as `readonly` properties in `OrchestratorDeps`, enforcing immutability at the type level.

@@ -80,7 +80,7 @@ The system automatically detects tab capabilities using the `detectSkills()` fun
 
 The skill detector also handles:
 - Subdomain matching with reduced confidence (0.8)
-- Shopify admin detection for ecommerce capabilities
+- Shopify admin detection (`*.myshopify.com/admin`) for ecommerce capabilities
 - Fallback to basic browsing skills for unknown platforms
 
 ## delegate_to_tab Tool
