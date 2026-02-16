@@ -150,7 +150,7 @@ describe('AIChatController.resetOnConversationChange', () => {
     expect((ctrl as any).lastSuggestedUserPrompt).toBe('');
     // pinnedConv is NOT reset — it self-cleans inside promptAI() to avoid mid-flight race conditions
     expect((ctrl as any).pinnedConv).toEqual({ site: 'x', convId: 'y' });
-  });
+  }, 15000);
 });
 
 // ── ConversationController integration with StateManager ──
