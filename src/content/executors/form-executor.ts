@@ -97,15 +97,18 @@ export class FormExecutor extends BaseExecutor {
   /** Set the value of a single form field with React/Vue-compatible native setters. */
   private setFieldValue(el: Element, value: unknown): void {
     if (el instanceof HTMLSelectElement) {
+      const normalized = String(value).trim().toLowerCase();
       const opt = [...el.options].find(
-        (o) => o.value.toLowerCase() === String(value).toLowerCase(),
+        (o) =>
+          o.value.trim().toLowerCase() === normalized ||
+          o.text.trim().toLowerCase() === normalized,
       );
       if (opt) el.value = opt.value;
     } else if (
       el instanceof HTMLInputElement &&
       el.type === 'checkbox'
     ) {
-      el.checked = !!value;
+      el.checked = this.toBoolean(value);
     } else if (
       el instanceof HTMLInputElement &&
       el.type === 'radio'
@@ -130,5 +133,16 @@ export class FormExecutor extends BaseExecutor {
     }
 
     el.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  private toBoolean(value: unknown): boolean {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value !== 0;
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      if (['', '0', 'false', 'off', 'no', 'n'].includes(normalized)) return false;
+      if (['1', 'true', 'on', 'yes', 'y'].includes(normalized)) return true;
+    }
+    return !!value;
   }
 }

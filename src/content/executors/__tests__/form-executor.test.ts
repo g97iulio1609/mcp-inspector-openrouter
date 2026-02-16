@@ -53,6 +53,24 @@ describe('FormExecutor', () => {
     expect(select.value).toBe('uk');
   });
 
+  it('form.fill-* sets select value by visible option label', async () => {
+    const select = document.createElement('select');
+    const opt1 = document.createElement('option');
+    opt1.value = 'us';
+    opt1.textContent = 'United States';
+    const opt2 = document.createElement('option');
+    opt2.value = 'uk';
+    opt2.textContent = 'United Kingdom';
+    select.append(opt1, opt2);
+    document.body.appendChild(select);
+
+    const tool = makeTool('form.fill-country', select);
+    const result = await executor.execute(tool, { value: 'united kingdom' });
+
+    expect(result.success).toBe(true);
+    expect(select.value).toBe('uk');
+  });
+
   it('form.fill-* sets checkbox value', async () => {
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
@@ -63,6 +81,19 @@ describe('FormExecutor', () => {
 
     expect(result.success).toBe(true);
     expect(checkbox.checked).toBe(true);
+  });
+
+  it('form.fill-* treats "false" string as unchecked for checkbox', async () => {
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = true;
+    document.body.appendChild(checkbox);
+
+    const tool = makeTool('form.fill-agree', checkbox);
+    const result = await executor.execute(tool, { value: 'false' });
+
+    expect(result.success).toBe(true);
+    expect(checkbox.checked).toBe(false);
   });
 
   it('form.fill-* sets the correct radio option by value for standalone radio group', async () => {
