@@ -43,8 +43,9 @@ interface ManifestTool {
 1. **Tool Registry** scans the page and discovers tools from HTML
 2. **ToolManifestAdapter** receives tools per URL, normalizes URL patterns
 3. Cross-page deduplication merges tools seen on multiple pages
-4. **Incremental diffs** update the manifest in background without full rescan
-5. **`toMCPJson()`** exports MCP-compatible JSON for external consumption
+4. Volatile feed-level tools are filtered out (e.g. social actions, non-structural navigation links)
+5. **Incremental diffs** update the manifest in background without full rescan
+6. **`toMCPJson()`** exports MCP-compatible JSON for external consumption
 
 ## WebMCP Server
 

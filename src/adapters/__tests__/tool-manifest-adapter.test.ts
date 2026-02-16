@@ -318,6 +318,65 @@ describe('ToolManifestAdapter', () => {
     });
   });
 
+  // ── Structural manifest filtering ──
+
+  describe('structural manifest filtering', () => {
+    it('keeps richtext composers but excludes social feed actions', () => {
+      const manifest = adapter.updatePage(
+        'social.com',
+        'https://social.com/home',
+        [
+          tool('social.like-post', { category: 'social-action' }),
+          tool('richtext.comment-box', { category: 'richtext' }),
+          tool('search.global', { category: 'search' }),
+          tool('nav.nav.go-home', { category: 'navigation' }),
+        ],
+      );
+
+      const names = manifest.tools.map((t) => t.name).sort();
+      expect(names).toEqual(['nav.nav.go-home', 'richtext.comment-box', 'search.global']);
+    });
+
+    it('keeps only structural navigation sections', () => {
+      const manifest = adapter.updatePage(
+        'social.com',
+        'https://social.com/home',
+        [
+          tool('nav.header.go-home', { category: 'navigation' }),
+          tool('nav.main.go-post-123', { category: 'navigation' }),
+          tool('nav.footer.go-settings', { category: 'navigation' }),
+        ],
+      );
+
+      const names = manifest.tools.map((t) => t.name).sort();
+      expect(names).toEqual(['nav.footer.go-settings', 'nav.header.go-home']);
+    });
+
+    it('keeps native navigation tools even with custom names', () => {
+      const manifest = adapter.updatePage(
+        'social.com',
+        'https://social.com/home',
+        [
+          tool('go_dashboard', { category: 'navigation', _source: 'native' }),
+          tool('nav.main.go-post-123', { category: 'navigation', _source: 'inferred' }),
+        ],
+      );
+
+      const names = manifest.tools.map((t) => t.name);
+      expect(names).toEqual(['go_dashboard']);
+    });
+
+    it('keeps uncategorized tools for backward compatibility', () => {
+      const manifest = adapter.updatePage(
+        'legacy.com',
+        'https://legacy.com/',
+        [tool('legacy_action')],
+      );
+
+      expect(manifest.tools.map((t) => t.name)).toEqual(['legacy_action']);
+    });
+  });
+
   // ── MCP JSON export ──
 
   describe('MCP JSON export format validation', () => {
