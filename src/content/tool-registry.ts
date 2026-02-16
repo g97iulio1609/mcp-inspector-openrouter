@@ -98,9 +98,10 @@ export class ToolRegistry {
           const asClean: CleanTool[] = pageTools.map(t => ({
             name: t.name,
             description: t.description,
-            inputSchema: t.inputSchema as CleanTool['inputSchema'],
+            inputSchema: t.inputSchema as unknown as CleanTool['inputSchema'],
             category: t.category as CleanTool['category'],
             annotations: t.annotations as CleanTool['annotations'],
+            _source: 'manifest' as const,
           }));
           // Use a synthetic URL from the pattern to restore state
           this.toolManifest.updatePage(site, `https://${site}${page.urlPattern}`, asClean);
@@ -241,9 +242,10 @@ export class ToolRegistry {
       declarative: cleanTools.filter((t) => t._source === 'declarative')
         .length,
       inferred: cleanTools.filter((t) => t._source === 'inferred').length,
+      manifest: cleanTools.filter((t) => t._source === 'manifest').length,
     };
     console.debug(
-      `[WebMCP] ${cleanTools.length} tools (${sources.native}N + ${sources.declarative}D + ${sources.inferred}I)`,
+      `[WebMCP] ${cleanTools.length} tools (${sources.native}N + ${sources.declarative}D + ${sources.inferred}I + ${sources.manifest}M)`,
       cleanTools,
     );
 
