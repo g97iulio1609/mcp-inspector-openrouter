@@ -18,6 +18,7 @@ import {
 } from '../utils/constants';
 import { ChromeStorageAdapter } from '../services/adapters';
 import { handleBrowserTool } from './browser-tools';
+import { bgLogger } from '../utils/bg-logger';
 
 const storage = new ChromeStorageAdapter();
 
@@ -48,8 +49,8 @@ async function updateBadge(tabId: number): Promise<void> {
   chrome.action.setBadgeText({ text: '', tabId });
   chrome.action.setBadgeBackgroundColor({ color: BADGE_COLOR });
 
-  chrome.tabs.sendMessage(tabId, { action: 'LIST_TOOLS' }).catch(() => {
-    // Content script not ready — ignore silently
+  chrome.tabs.sendMessage(tabId, { action: 'LIST_TOOLS' }).catch((err: unknown) => {
+    bgLogger.warn('Badge', 'LIST_TOOLS to content script failed', { tabId, error: String(err) });
   });
 }
 
@@ -112,6 +113,9 @@ function isCaptureScreenshotMessage(msg: unknown): boolean {
 
 chrome.runtime.onMessage.addListener(
   (msg: unknown, sender: chrome.runtime.MessageSender, sendResponse: (response?: unknown) => void): boolean | undefined => {
+    const action = typeof msg === 'object' && msg !== null ? (msg as Record<string, unknown>).action : undefined;
+    bgLogger.info('MSG', 'Received', { action, tabId: sender?.tab?.id });
+
     // Badge update from content script
     if (isToolsBroadcast(msg) && sender.tab?.id != null) {
       const text = msg.tools.length ? `${msg.tools.length}` : '';
@@ -121,26 +125,29 @@ chrome.runtime.onMessage.addListener(
 
     // AI Classification request
     if (isAIClassifyMessage(msg)) {
+      bgLogger.info('AI_CLASSIFY', 'Start', { model: msg.model });
       handleAIClassify(msg)
-        .then(sendResponse)
-        .catch((err: Error) => sendResponse({ error: err.message }));
+        .then((res) => { bgLogger.info('AI_CLASSIFY', 'Success', { length: res.text?.length ?? 0 }); sendResponse(res); })
+        .catch((err: Error) => { bgLogger.error('AI_CLASSIFY', 'Failed', { error: err.message }); sendResponse({ error: err.message }); });
       return true; // async response
     }
 
     // Screenshot capture (requires activeTab permission)
     if (isCaptureScreenshotMessage(msg)) {
+      bgLogger.info('SCREENSHOT', 'Start');
       chrome.tabs.captureVisibleTab({ format: 'jpeg', quality: 70 })
-        .then(dataUrl => sendResponse({ screenshot: dataUrl }))
-        .catch(err => sendResponse({ error: (err as Error).message }));
+        .then(dataUrl => { bgLogger.info('SCREENSHOT', 'Success', { size: dataUrl.length }); sendResponse({ screenshot: dataUrl }); })
+        .catch(err => { bgLogger.error('SCREENSHOT', 'Failed', { error: (err as Error).message }); sendResponse({ error: (err as Error).message }); });
       return true; // async response
     }
 
     // Browser tool execution
     if (typeof msg === 'object' && msg !== null && (msg as Record<string, unknown>).action === 'EXECUTE_BROWSER_TOOL') {
       const toolMsg = msg as { action: string; name: string; args: Record<string, unknown> };
+      bgLogger.info('BROWSER_TOOL', 'Start', { name: toolMsg.name });
       handleBrowserTool(toolMsg.name, toolMsg.args || {})
-        .then(sendResponse)
-        .catch((err: Error) => sendResponse({ success: false, message: err.message }));
+        .then((res) => { bgLogger.info('BROWSER_TOOL', 'Success', { name: toolMsg.name }); sendResponse(res); })
+        .catch((err: Error) => { bgLogger.error('BROWSER_TOOL', 'Failed', { name: toolMsg.name, error: err.message }); sendResponse({ success: false, message: err.message }); });
       return true;
     }
 

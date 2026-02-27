@@ -22,6 +22,7 @@ import { IndexedDBToolCacheAdapter, extractSite } from '../adapters/indexeddb-to
 import { ToolManifestAdapter } from '../adapters/tool-manifest-adapter';
 import { ManifestPersistenceAdapter } from '../adapters/manifest-persistence-adapter';
 import { WmcpServer } from './wmcp-server';
+import { bgLogger } from '../utils/bg-logger';
 
 // ── Guard against duplicate injection ──
 if (window.__wmcp_loaded) {
@@ -36,7 +37,9 @@ if (window.__wmcp_loaded) {
   registry.setManifestPersistence(new ManifestPersistenceAdapter());
 
   // Restore persisted manifest for instant availability
-  void registry.loadPersistedManifest();
+  void registry.loadPersistedManifest().catch((err: unknown) => {
+    bgLogger.error('Content', 'loadPersistedManifest failed', { error: String(err) });
+  });
 
   // ── WebMCP JSON server via DOM injection ──
   const wmcpServer = new WmcpServer();
