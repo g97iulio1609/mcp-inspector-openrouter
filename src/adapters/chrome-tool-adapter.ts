@@ -147,7 +147,7 @@ export class ChromeToolAdapter implements IToolExecutionPort {
       // Fallback: treat raw string/unknown as data (matches existing tool-loop behavior)
       return {
         success: true,
-        data: typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult),
+        data: typeof rawResult === 'string' ? rawResult : (JSON.stringify(rawResult) ?? ''),
       };
     } catch (e) {
       const error = (e as Error).message;

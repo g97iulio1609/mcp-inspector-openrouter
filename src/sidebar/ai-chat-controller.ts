@@ -436,12 +436,15 @@ export class AIChatController implements IResettable {
           convCtrl.addAndRender('tool_call', '', { tool: event.name, args: event.args }, pinnedConv);
           break;
         case 'tool_result':
-          convCtrl.addAndRender(
-            'tool_result',
-            typeof event.data === 'string' ? event.data : JSON.stringify(event.data),
-            { tool: event.name },
-            pinnedConv,
-          );
+          {
+            const safeStringify = (v: unknown): string => { try { return JSON.stringify(v) ?? String(v); } catch { return '[unserializable result]'; } };
+            convCtrl.addAndRender(
+              'tool_result',
+              typeof event.data === 'string' ? event.data : safeStringify(event.data),
+              { tool: event.name },
+              pinnedConv,
+            );
+          }
           break;
         case 'tool_error':
           convCtrl.addAndRender('tool_error', event.error, { tool: event.name }, pinnedConv);

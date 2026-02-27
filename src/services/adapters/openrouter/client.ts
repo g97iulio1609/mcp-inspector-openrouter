@@ -146,7 +146,7 @@ export class OpenRouterChat {
             content: JSON.stringify(
               m.functionResponse.response.result ??
                 m.functionResponse.response.error,
-            ),
+            ) ?? 'null',
           });
         }
       }
