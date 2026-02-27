@@ -9,6 +9,7 @@ import { getSecurityTier } from './merge';
 import { extractPageContext } from './page-context';
 import type { ToolRegistry } from './tool-registry';
 import { extractSite } from '../adapters/indexeddb-tool-cache-adapter';
+import { bgLogger } from '../utils/bg-logger';
 
 export function createMessageHandler(registry: ToolRegistry): void {
   // ── YOLO mode (cached, updated on storage change) ──
@@ -58,21 +59,30 @@ export function createMessageHandler(registry: ToolRegistry): void {
   }
 
   function handleGetPageContext(reply: (r?: unknown) => void): boolean {
-    reply(extractPageContext());
+    bgLogger.debug('Content', 'handleGetPageContext start');
+    const ctx = extractPageContext();
+    bgLogger.debug('Content', 'handleGetPageContext result', { title: ctx?.title, url: ctx?.url });
+    reply(ctx);
     return false;
   }
 
   function handleGetToolsSync(reply: (r?: unknown) => void): boolean {
+    bgLogger.debug('Content', 'handleGetToolsSync start');
     registry.listToolsAlwaysAugment().then((tools) => {
+      bgLogger.info('Content', 'handleGetToolsSync done', { count: tools.length });
       reply({ tools, url: location.href });
-    }).catch(() => {
+    }).catch((err: unknown) => {
+      bgLogger.error('Content', 'handleGetToolsSync failed', { error: String(err) });
       reply({ tools: [], url: location.href });
     });
     return true; // async response
   }
 
   function handleListTools(reply: (r?: unknown) => void): boolean {
-    registry.listToolsAlwaysAugment();
+    bgLogger.debug('Content', 'handleListTools start');
+    registry.listToolsAlwaysAugment().catch((err: unknown) => {
+      bgLogger.warn('Content', 'handleListTools augment failed', { error: String(err) });
+    });
     if (navigator.modelContextTesting?.registerToolsChangedCallback) {
       navigator.modelContextTesting.registerToolsChangedCallback(
         () => { registry.listToolsAlwaysAugment(); },
@@ -89,6 +99,7 @@ export function createMessageHandler(registry: ToolRegistry): void {
     const execMsg = msg as { name: string; inputArgs: string | Record<string, unknown> };
     const toolName = execMsg.name;
     const inputArgs = execMsg.inputArgs;
+    bgLogger.info('Content', 'handleExecuteTool start', { toolName });
 
     // Check inferred tools first
     const inferredTool = registry.inferredToolsMap.get(toolName);
@@ -141,8 +152,9 @@ export function createMessageHandler(registry: ToolRegistry): void {
 
       registry.executorRegistry
         .execute(inferredTool, parsedArgs)
-        .then((result) => reply(result))
+        .then((result) => { bgLogger.info('Content', 'Inferred tool success', { toolName }); reply(result); })
         .catch((err: Error) => {
+          bgLogger.error('Content', 'Inferred execution error', { toolName, error: err.message });
           console.error('[WebMCP] Inferred execution error:', err);
           reply(JSON.stringify(err.message || String(err)));
         });
@@ -313,6 +325,7 @@ export function createMessageHandler(registry: ToolRegistry): void {
       } catch (err) {
         const message =
           err instanceof Error ? err.message : String(err);
+        bgLogger.error('Content', 'Message handler exception', { action: msg.action, error: message });
         chrome.runtime.sendMessage({ message });
         return false;
       }
