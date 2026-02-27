@@ -73,7 +73,7 @@ export class SubagentAdapter implements ISubagentPort {
 
     const info: SubagentInfo = {
       id,
-      task: task.prompt.slice(0, 100),
+      task: (task.prompt ?? '').slice(0, 100),
       startedAt: Date.now(),
       status: 'running',
     };
