@@ -205,7 +205,7 @@ export async function executeToolLoop(params: ToolLoopParams): Promise<ToolLoopR
             name,
             args,
           });
-          const resultStr = typeof result === 'string' ? result : JSON.stringify(result);
+          const resultStr = typeof result === 'string' ? result : (JSON.stringify(result) ?? '');
           addMessage('tool_result', resultStr, { tool: name });
           planManager.markStepDone();
           toolResponses.push({
@@ -233,7 +233,7 @@ export async function executeToolLoop(params: ToolLoopParams): Promise<ToolLoopR
             name,
             inputArgs: JSON.stringify(args),
           });
-          const result = typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult);
+          const result = typeof rawResult === 'string' ? rawResult : (JSON.stringify(rawResult) ?? '');
           toolResponses.push({
             functionResponse: {
               name,
