@@ -389,7 +389,7 @@ function waitForPageLoad(tabId: number): Promise<void> {
       chrome.tabs.onRemoved.removeListener(removeListener);
       clearTimeout(timer);
     };
-    const updateListener = (id: number, info: chrome.tabs.TabChangeInfo): void => {
+    const updateListener = (id: number, info: chrome.tabs.OnUpdatedInfo): void => {
       if (id === tabId && info.status === 'complete') { cleanup(); resolve(); }
     };
     const removeListener = (id: number): void => {
