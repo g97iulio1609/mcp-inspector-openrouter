@@ -48,7 +48,7 @@ export async function waitForTabReady(
 
     const listener = (
       updatedTabId: number,
-      changeInfo: chrome.tabs.TabChangeInfo,
+      changeInfo: chrome.tabs.OnUpdatedInfo,
     ): void => {
       if (settled) return;
       if (updatedTabId === tabId && changeInfo.status === 'complete') {
@@ -107,7 +107,7 @@ export async function waitForTabFocus(
       }
     };
 
-    const listener = (info: chrome.tabs.TabActiveInfo): void => {
+    const listener = (info: chrome.tabs.OnActivatedInfo): void => {
       if (settled) return;
       if (info.tabId === tabId) {
         if (settleTimer !== null) clearTimeout(settleTimer);
