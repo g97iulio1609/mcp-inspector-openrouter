@@ -18,6 +18,13 @@ const SESSION_ID = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 const logs: LogEntry[] = [];
 const MAX_LOGS = 5000;
 
+/** When true, each log entry is also POSTed to the local log server (fire-and-forget). */
+let fileLoggingEnabled = true;
+
+export function setFileLogging(enabled: boolean): void {
+  fileLoggingEnabled = enabled;
+}
+
 function now(): string {
   return new Date().toISOString();
 }
@@ -35,6 +42,15 @@ function addEntry(level: LogLevel, category: string, message: string, data?: unk
     case 'WARN': console.warn(...consoleData); break;
     case 'DEBUG': console.debug(...consoleData); break;
     default: console.log(...consoleData);
+  }
+
+  // Fire-and-forget POST to local log server (never throws)
+  if (fileLoggingEnabled) {
+    void fetch('http://localhost:3005/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(entry),
+    }).catch(() => { /* log server not running — ignore */ });
   }
 }
 

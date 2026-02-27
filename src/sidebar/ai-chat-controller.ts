@@ -114,6 +114,8 @@ export class AIChatController implements IResettable {
       try {
         await this.promptAI(message);
       } catch (error) {
+        const err = error as Error | undefined;
+        logger.error('Chat', 'FATAL: promptAI uncaught', { err: err?.message ?? String(err), stack: err?.stack?.slice(0, 500) });
         convCtrl.state.trace.push({ error });
         convCtrl.addAndRender('error', 'Sorry, something went wrong. Please try again.', {}, this.pinnedConv ?? undefined);
       }
@@ -176,7 +178,10 @@ export class AIChatController implements IResettable {
     const { getCurrentTab, convCtrl, planManager, getCurrentTools, setCurrentTools, chatInput } =
       this.deps;
 
+    logger.info('Chat', 'promptAI called', { hasProvidedMessage: !!providedMessage, inputValue: chatInput.value.slice(0, 50) });
+
     const tab = await getCurrentTab();
+    logger.info('Chat', 'Tab resolved', { tabId: tab?.id, tabUrl: tab?.url?.slice(0, 80) });
     if (!tab?.id) return;
     convCtrl.ensureConversation();
 
@@ -193,6 +198,7 @@ export class AIChatController implements IResettable {
       const result = await chrome.storage.local.get([STORAGE_KEY_API_KEY, STORAGE_KEY_MODEL]);
       const apiKey = (result[STORAGE_KEY_API_KEY] as string) ?? '';
       const model = (result[STORAGE_KEY_MODEL] as string) ?? DEFAULT_MODEL;
+      logger.info('Chat', 'Credentials check', { hasApiKey: !!apiKey, model, historyLength: 0 });
       chat = new OpenRouterChat(apiKey, model);
       convCtrl.state.chat = chat;
       if (pinnedConv.convId && pinnedConv.site) {
@@ -283,6 +289,7 @@ export class AIChatController implements IResettable {
     }
 
     const config = buildChatConfig(pageContext, allTools, planManager.planModeEnabled, mentionContexts);
+    logger.info('Chat', 'Config built', { hasSystemInstruction: !!config?.systemInstruction });
     convCtrl.state.trace.push({ userPrompt: { message, config } });
 
     let screenshotDataUrl: string | undefined;
@@ -314,6 +321,8 @@ export class AIChatController implements IResettable {
     // Users can opt-out by setting the storage key to `false`.
     const orchestratorSettings = await chrome.storage.local.get([STORAGE_KEY_ORCHESTRATOR_MODE]);
     const useOrchestrator = orchestratorSettings[STORAGE_KEY_ORCHESTRATOR_MODE] !== false;
+
+    logger.info('Chat', 'Dispatching to AI', { mode: useOrchestrator ? 'orchestrator' : 'toolLoop', messageLength: typeof userMessage === 'string' ? userMessage.length : userMessage.length });
 
     if (useOrchestrator) {
       await this.runOrchestrator(
@@ -397,6 +406,8 @@ export class AIChatController implements IResettable {
     const subagentApiKey = (subagentStorage[STORAGE_KEY_API_KEY] as string) ?? '';
     const subagentModel = (subagentStorage[STORAGE_KEY_MODEL] as string) ?? DEFAULT_MODEL;
 
+    logger.info('Orchestrator', 'Starting orchestrator run', { model: subagentModel, hasApiKey: !!subagentApiKey });
+
     const orchestrator = new AgentOrchestrator({
       toolPort: approvalGate,
       contextPort: {} as any, // Not used during run() — context is passed inline
@@ -476,6 +487,8 @@ export class AIChatController implements IResettable {
       }
     });
 
+    logger.info('Orchestrator', 'Calling orchestrator.run()', { messageType: typeof userMessage });
+
     const result = await orchestrator.run(userMessage, {
       pageContext,
       tools: allTools as unknown as ToolDefinition[],
@@ -487,6 +500,7 @@ export class AIChatController implements IResettable {
         : undefined,
     });
 
+    logger.info('Chat', 'AI response complete', { updatedToolCount: (result.updatedTools as unknown[])?.length ?? 0 });
     setCurrentTools(result.updatedTools as unknown as CleanTool[]);
     planManager.markRemainingStepsDone();
 
