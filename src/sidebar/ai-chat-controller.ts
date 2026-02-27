@@ -452,6 +452,7 @@ export class AIChatController implements IResettable {
       // streamResult comes from AI SDK's streamText() — provides textStream, fullStream, callbacks
       // Consume fullStream for real-time tool call/result/text rendering
       let accumulatedText = '';
+      if (!streamResult?.fullStream) throw new Error('Agent returned no stream');
       const reader = (streamResult.fullStream as ReadableStream).getReader();
 
       // eslint-disable-next-line no-constant-condition
@@ -467,7 +468,9 @@ export class AIChatController implements IResettable {
             break;
           case 'tool-result':
             {
-              const content = typeof part.result === 'string' ? part.result : (JSON.stringify(part.result) ?? '');
+              const content = typeof part.result === 'string'
+                ? part.result
+                : (() => { try { return JSON.stringify(part.result) ?? ''; } catch { return '[unserializable result]'; } })();
               convCtrl.addAndRender('tool_result', content.slice(0, 500), { tool: part.toolName }, pinnedConv);
             }
             break;
@@ -485,7 +488,10 @@ export class AIChatController implements IResettable {
         logger.info('Orchestrator', 'Stream completed with no text output (tool-only run)');
       }
     } catch (err: any) {
-      const errDetail = err?.cause ? `${err.message} [cause: ${err.cause?.message || JSON.stringify(err.cause)}]` : err.message;
+      const safeStringify = (v: unknown): string => { try { return JSON.stringify(v) ?? String(v); } catch { return '[circular]'; } };
+      const errDetail = err?.cause
+        ? `${err?.message ?? String(err)} [cause: ${err.cause?.message ?? safeStringify(err.cause)}]`
+        : (err?.message ?? String(err ?? 'Unknown error'));
       logger.error('Orchestrator', `Agent run failed: ${errDetail}`, { stack: err.stack, cause: err.cause, responseBody: err.responseBody });
       convCtrl.addAndRender('error', `Agent crashed: ${errDetail}`, {}, pinnedConv);
     }
