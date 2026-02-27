@@ -268,20 +268,19 @@ export async function executeToolLoop(params: ToolLoopParams): Promise<ToolLoopR
         }
 
         if (navigatedDuringBatch) {
-          const remaining = functionCalls.slice(
-            functionCalls.indexOf(
-              functionCalls.find((fc) => fc.name === name && fc.id === id)!,
-            ) + 1,
-          );
-          for (const skipped of remaining) {
-            toolResponses.push({
-              functionResponse: {
-                name: skipped.name,
-                response: { result: 'Skipped: page navigated, this tool no longer exists on the new page.' },
-                tool_call_id: skipped.id,
-              },
-            });
-            addMessage('tool_result', '⏭️ Skipped (page navigated)', { tool: skipped.name });
+          const currentIndex = functionCalls.findIndex((fc) => fc.name === name && fc.id === id);
+          if (currentIndex >= 0) {
+            const remaining = functionCalls.slice(currentIndex + 1);
+            for (const skipped of remaining) {
+              toolResponses.push({
+                functionResponse: {
+                  name: skipped.name,
+                  response: { result: 'Skipped: page navigated, this tool no longer exists on the new page.' },
+                  tool_call_id: skipped.id,
+                },
+              });
+              addMessage('tool_result', '⏭️ Skipped (page navigated)', { tool: skipped.name });
+            }
           }
           break;
         }
